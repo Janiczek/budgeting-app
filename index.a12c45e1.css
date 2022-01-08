@@ -419,6 +419,20 @@ Ensure the default browser behavior of the `hidden` attribute.
 }.hover\:bg-lime-300:hover {
   --tw-bg-opacity: 1;
   background-color: rgb(190 242 100 / var(--tw-bg-opacity));
+}.disabled\:cursor-not-allowed:disabled {
+  cursor: not-allowed;
+}.disabled\:border-gray-400:disabled {
+  --tw-border-opacity: 1;
+  border-color: rgb(156 163 175 / var(--tw-border-opacity));
+}.disabled\:bg-gray-200:disabled {
+  --tw-bg-opacity: 1;
+  background-color: rgb(229 231 235 / var(--tw-bg-opacity));
+}.disabled\:text-gray-400:disabled {
+  --tw-text-opacity: 1;
+  color: rgb(156 163 175 / var(--tw-text-opacity));
+}.disabled\:hover\:bg-gray-300:hover:disabled {
+  --tw-bg-opacity: 1;
+  background-color: rgb(209 213 219 / var(--tw-bg-opacity));
 }
 
-/*# sourceMappingURL=index.42bd0791.css.map */
+/*# sourceMappingURL=index.a12c45e1.css.map */

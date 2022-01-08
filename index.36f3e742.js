@@ -4725,7 +4725,7 @@ type alias Process =
         else return $elm$html$Html$Attributes$class('bg-orange-200 border-orange-400 text-orange-700 hover:bg-orange-300 hover:border-orange-500');
     };
     var $author$project$Main$button = F3(function(color, attrs, contents) {
-        return A2($elm$html$Html$button, A2($elm$core$List$cons, $elm$html$Html$Attributes$class('border px-2 rounded border flex flex-row gap-1 items-center'), A2($elm$core$List$cons, $author$project$Main$buttonColor(color), attrs)), contents);
+        return A2($elm$html$Html$button, A2($elm$core$List$cons, $elm$html$Html$Attributes$class('border px-2 rounded border flex flex-row gap-1 items-center disabled:cursor-not-allowed disabled:bg-gray-200 disabled:border-gray-400 disabled:text-gray-400 disabled:hover:bg-gray-300'), A2($elm$core$List$cons, $author$project$Main$buttonColor(color), attrs)), contents);
     });
     var $author$project$Main$AddBucket = F2(function(a, b) {
         return {
@@ -4832,6 +4832,22 @@ type alias Process =
     var $author$project$Main$input = F2(function(attrs, value) {
         return A2($elm$html$Html$input, A2($elm$core$List$cons, $elm$html$Html$Attributes$value(value), A2($elm$core$List$cons, $elm$html$Html$Attributes$class('border px-2 bg-sky-100 rounded border-sky-300 border hover:bg-sky-200 hover:border-sky-400'), attrs)), _List_Nil);
     });
+    var $elm$core$Basics$ge = _Utils_ge;
+    var $elm$core$Basics$modBy = _Basics_modBy;
+    var $author$project$Data$Money$toParts = function(_v0) {
+        var n = _v0.a;
+        return _Utils_Tuple2(n / 100 | 0, A2($elm$core$Basics$modBy, 100, n));
+    };
+    var $author$project$Main$isValidNumber = function(valueString) {
+        var _v0 = $author$project$Data$Money$fromString(valueString);
+        if (_v0.$ === 'Just') {
+            var value = _v0.a;
+            var _v1 = $author$project$Data$Money$toParts(value);
+            var whole = _v1.a;
+            var cents = _v1.b;
+            return whole >= 0;
+        } else return false;
+    };
     var $author$project$Icons$minus = A2($author$project$Icons$fontAwesomeIcon, '0 0 448 512', 'M400 288h-352c-17.69 0-32-14.32-32-32.01s14.31-31.99 32-31.99h352c17.69 0 32 14.3 32 31.99S417.7 288 400 288z');
     var $elm$virtual_dom$VirtualDom$Normal = function(a) {
         return {
@@ -4879,15 +4895,14 @@ type alias Process =
     var $elm$html$Html$Attributes$selected = $elm$html$Html$Attributes$boolProperty('selected');
     var $elm$virtual_dom$VirtualDom$text = _VirtualDom_text;
     var $elm$html$Html$text = $elm$virtual_dom$VirtualDom$text;
-    var $elm$core$Basics$modBy = _Basics_modBy;
     var $elm$core$String$pad = F3(function(n, _char, string) {
         var half = (n - $elm$core$String$length(string)) / 2;
         return _Utils_ap(A2($elm$core$String$repeat, $elm$core$Basics$ceiling(half), $elm$core$String$fromChar(_char)), _Utils_ap(string, A2($elm$core$String$repeat, $elm$core$Basics$floor(half), $elm$core$String$fromChar(_char))));
     });
-    var $author$project$Data$Money$toString = function(_v0) {
-        var _int = _v0.a;
-        var whole = _int / 100 | 0;
-        var cents = A2($elm$core$Basics$modBy, 100, _int);
+    var $author$project$Data$Money$toString = function(money) {
+        var _v0 = $author$project$Data$Money$toParts(money);
+        var whole = _v0.a;
+        var cents = _v0.b;
         return $elm$core$String$fromInt(whole) + ('.' + (A3($elm$core$String$pad, 2, _Utils_chr('0'), $elm$core$String$fromInt(cents)) + ' Kč'));
     };
     var $author$project$Main$valuePill = function(money) {
@@ -4928,7 +4943,8 @@ type alias Process =
                     $author$project$Icons$xmark
                 ])),
                 A3($author$project$Main$button, $author$project$Main$Sky, _List_fromArray([
-                    $elm$html$Html$Events$onClick($author$project$Main$FinishMoneyOp(bucket.id))
+                    $elm$html$Html$Events$onClick($author$project$Main$FinishMoneyOp(bucket.id)),
+                    $elm$html$Html$Attributes$disabled(!$author$project$Main$isValidNumber(valueString))
                 ]), _List_fromArray([
                     $author$project$Icons$check
                 ]))
@@ -5212,4 +5228,4 @@ $d3d62a653380dacf$var$app.ports.saveToLocalStorage.subscribe((string)=>{
 });
 
 
-//# sourceMappingURL=index.31d13c55.js.map
+//# sourceMappingURL=index.36f3e742.js.map
