@@ -658,7 +658,7 @@ targetBucketOptionsView :
 targetBucketOptionsView config ( category, buckets ) =
     Html.option
         [ Attrs.disabled True ]
-        [ Html.text category.name ]
+        [ Html.text <| "[ " ++ category.name ++ " ]" ]
         :: List.map (.id >> NormalBucket >> targetBucketOptionView config) buckets
 
 
@@ -703,7 +703,7 @@ targetBucketOptionView config targetBucket =
         , Attrs.disabled <| config.currentBucket == targetBucket
         , Attrs.value <| bucketTypeToString targetBucket
         ]
-        [ Html.text <| "- " ++ config.bucketName targetBucket ]
+        [ Html.text <| config.bucketName targetBucket ]
 
 
 bucketView : Model -> List ( Category, List Bucket ) -> Bucket -> Html Msg
