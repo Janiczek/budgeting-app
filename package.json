@@ -1,9 +1,11 @@
 {
   "license": "BSD-3-Clause",
   "scripts": {
-    "start": "snowpack dev --config snowpack.config.mjs"
+    "start": "snowpack dev --config snowpack.config.mjs",
+    "build": "rm -rf ./index.* && npx parcel build --no-optimize src/index.html && mv dist/* ./ && sed -i 's/\/index/index/g' index.html"
   },
   "devDependencies": {
+    "@parcel/transformer-elm": "^2.1.1",
     "@snowpack/plugin-postcss": "^1.4.3",
     "autoprefixer": "^10.4.2",
     "elm": "^0.19.1-5",
