@@ -408,11 +408,9 @@ update msg model =
             )
 
         FinishMoneyOp bucketType ->
-            Maybe.map2 Tuple.pair
-                (getMoneyOp bucketType model)
-                (getBucketValue bucketType model)
+            getMoneyOp bucketType model
                 |> Maybe.andThen
-                    (\( moneyOp, bucketValue ) ->
+                    (\moneyOp ->
                         let
                             singleBucketOp : (Money -> Money) -> ( Model, Cmd Msg )
                             singleBucketOp moneyFn =
@@ -498,19 +496,8 @@ getMoneyOp bucketType model =
             IdDict.get bucketId model.bucketMoneyOps
 
 
-getBucketValue : BucketType -> Model -> Maybe Money
-getBucketValue bucketType model =
-    case bucketType of
-        ToBeBudgeted ->
-            Just model.toBeBudgeted
-
-        NormalBucket bucketId ->
-            IdDict.get bucketId model.buckets
-                |> Maybe.map .value
-
-
 subscriptions : Model -> Sub Msg
-subscriptions model =
+subscriptions _ =
     Sub.none
 
 

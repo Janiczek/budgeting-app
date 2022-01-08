@@ -6,7 +6,6 @@ module Data.Money exposing
     , fromString
     , isNegative
     , subtract
-    , toParts
     , toString
     , zero
     )
