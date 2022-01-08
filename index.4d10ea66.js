@@ -4818,6 +4818,16 @@ type alias Process =
         return A3($elm$core$List$foldr, $elm$json$Json$Decode$field, decoder, fields);
     });
     var $author$project$Icons$check = A2($author$project$Icons$fontAwesomeIcon, '0 0 512 512', 'M480 128c0 8.188-3.125 16.38-9.375 22.62l-256 256C208.4 412.9 200.2 416 192 416s-16.38-3.125-22.62-9.375l-128-128C35.13 272.4 32 264.2 32 256c0-18.28 14.95-32 32-32c8.188 0 16.38 3.125 22.62 9.375L192 338.8l233.4-233.4C431.6 99.13 439.8 96 448 96C465.1 96 480 109.7 480 128z');
+    var $elm$core$List$append = F2(function(xs, ys) {
+        if (!ys.b) return xs;
+        else return A3($elm$core$List$foldr, $elm$core$List$cons, ys, xs);
+    });
+    var $elm$core$List$concat = function(lists) {
+        return A3($elm$core$List$foldr, $elm$core$List$append, _List_Nil, lists);
+    };
+    var $elm$core$List$concatMap = F2(function(f, list) {
+        return $elm$core$List$concat(A2($elm$core$List$map, f, list));
+    });
     var $elm$json$Json$Encode$bool = _Json_wrap;
     var $elm$html$Html$Attributes$boolProperty = F2(function(key, bool) {
         return A2(_VirtualDom_property, key, $elm$json$Json$Encode$bool(bool));
@@ -4893,6 +4903,25 @@ type alias Process =
     var $author$project$Icons$plus = A2($author$project$Icons$fontAwesomeIcon, '0 0 448 512', 'M432 256c0 17.69-14.33 32.01-32 32.01H256v144c0 17.69-14.33 31.99-32 31.99s-32-14.3-32-31.99v-144H48c-17.67 0-32-14.32-32-32.01s14.33-31.99 32-31.99H192v-144c0-17.69 14.33-32.01 32-32.01s32 14.32 32 32.01v144h144C417.7 224 432 238.3 432 256z');
     var $elm$html$Html$select = _VirtualDom_node('select');
     var $elm$html$Html$Attributes$selected = $elm$html$Html$Attributes$boolProperty('selected');
+    var $elm$core$List$maybeCons = F3(function(f, mx, xs) {
+        var _v0 = f(mx);
+        if (_v0.$ === 'Just') {
+            var x = _v0.a;
+            return A2($elm$core$List$cons, x, xs);
+        } else return xs;
+    });
+    var $elm$core$List$filterMap = F2(function(f, xs) {
+        return A3($elm$core$List$foldr, $elm$core$List$maybeCons(f), _List_Nil, xs);
+    });
+    var $author$project$Main$sortedCategoriesAndBuckets = function(model) {
+        return A2($elm$core$List$map, function(category) {
+            return _Utils_Tuple2(category, A2($elm$core$List$filterMap, function(bucketId) {
+                return A2($author$project$Data$IdDict$get, bucketId, model.buckets);
+            }, A2($elm$core$Maybe$withDefault, _List_Nil, A2($author$project$Data$IdDict$get, category.id, model.bucketsOrder))));
+        }, A2($elm$core$List$filterMap, function(categoryId) {
+            return A2($author$project$Data$IdDict$get, categoryId, model.categories);
+        }, model.categoriesOrder));
+    };
     var $elm$virtual_dom$VirtualDom$text = _VirtualDom_text;
     var $elm$html$Html$text = $elm$virtual_dom$VirtualDom$text;
     var $elm$core$String$pad = F3(function(n, _char, string) {
@@ -4912,11 +4941,6 @@ type alias Process =
             $elm$html$Html$text($author$project$Data$Money$toString(money))
         ]));
     };
-    var $turboMaCk$any_dict$Dict$Any$values = A2($elm$core$Basics$composeL, $elm$core$List$map($elm$core$Tuple$second), $turboMaCk$any_dict$Dict$Any$toList);
-    var $author$project$Data$IdDict$values = function(_v0) {
-        var dict = _v0.a;
-        return $turboMaCk$any_dict$Dict$Any$values(dict);
-    };
     var $author$project$Icons$xmark = A2($author$project$Icons$fontAwesomeIcon, '0 0 320 512', 'M310.6 361.4c12.5 12.5 12.5 32.75 0 45.25C304.4 412.9 296.2 416 288 416s-16.38-3.125-22.62-9.375L160 301.3L54.63 406.6C48.38 412.9 40.19 416 32 416S15.63 412.9 9.375 406.6c-12.5-12.5-12.5-32.75 0-45.25l105.4-105.4L9.375 150.6c-12.5-12.5-12.5-32.75 0-45.25s32.75-12.5 45.25 0L160 210.8l105.4-105.4c12.5-12.5 32.75-12.5 45.25 0s12.5 32.75 0 45.25l-105.4 105.4L310.6 361.4z');
     var $author$project$Main$bucketView = F2(function(model, bucket) {
         var targetBucketOptionView = F2(function(selectedTargetBucketId, targetBucket) {
@@ -4924,8 +4948,17 @@ type alias Process =
                 $elm$html$Html$Attributes$selected(_Utils_eq(selectedTargetBucketId, $elm$core$Maybe$Just(targetBucket.id))),
                 $elm$html$Html$Attributes$value($author$project$Data$Id$unwrap(targetBucket.id))
             ]), _List_fromArray([
-                $elm$html$Html$text(targetBucket.name)
+                $elm$html$Html$text('- ' + targetBucket.name)
             ]));
+        });
+        var targetBucketOptionsView = F2(function(selectedTargetBucketId, _v2) {
+            var category = _v2.a;
+            var buckets = _v2.b;
+            return A2($elm$core$List$cons, A2($elm$html$Html$option, _List_fromArray([
+                $elm$html$Html$Attributes$disabled(true)
+            ]), _List_fromArray([
+                $elm$html$Html$text(category.name)
+            ])), A2($elm$core$List$map, targetBucketOptionView(selectedTargetBucketId), buckets));
         });
         var singleBucketView = F2(function(valueString, placeholder) {
             return A2($elm$html$Html$div, _List_fromArray([
@@ -5006,9 +5039,6 @@ type alias Process =
                                 'target',
                                 'value'
                             ]), $author$project$Data$Id$decoder));
-                            var otherBuckets = A2($elm$core$List$filter, A2($elm$core$Basics$composeR, function($) {
-                                return $.id;
-                            }, $elm$core$Basics$neq(bucket.id)), $author$project$Data$IdDict$values(model.buckets));
                             return A2($elm$html$Html$div, _List_fromArray([
                                 $elm$html$Html$Attributes$class('flex gap-1')
                             ]), _List_fromArray([
@@ -5026,14 +5056,15 @@ type alias Process =
                                     $elm$html$Html$Attributes$selected(_Utils_eq(targetBucketId, $elm$core$Maybe$Nothing))
                                 ]), _List_fromArray([
                                     $elm$html$Html$text('Move where? ▼')
-                                ])), A2($elm$core$List$map, targetBucketOptionView(targetBucketId), otherBuckets))),
+                                ])), A2($elm$core$List$concatMap, targetBucketOptionsView(targetBucketId), $author$project$Main$sortedCategoriesAndBuckets(model)))),
                                 A3($author$project$Main$button, $author$project$Main$Sky, _List_fromArray([
                                     $elm$html$Html$Events$onClick($author$project$Main$CancelMoneyOp(bucket.id))
                                 ]), _List_fromArray([
                                     $author$project$Icons$xmark
                                 ])),
                                 A3($author$project$Main$button, $author$project$Main$Sky, _List_fromArray([
-                                    $elm$html$Html$Events$onClick($author$project$Main$FinishMoneyOp(bucket.id))
+                                    $elm$html$Html$Events$onClick($author$project$Main$FinishMoneyOp(bucket.id)),
+                                    $elm$html$Html$Attributes$disabled(!$author$project$Main$isValidNumber(valueString))
                                 ]), _List_fromArray([
                                     $author$project$Icons$check
                                 ]))
@@ -5048,21 +5079,10 @@ type alias Process =
             ]))
         ]));
     });
-    var $elm$core$List$maybeCons = F3(function(f, mx, xs) {
-        var _v0 = f(mx);
-        if (_v0.$ === 'Just') {
-            var x = _v0.a;
-            return A2($elm$core$List$cons, x, xs);
-        } else return xs;
-    });
-    var $elm$core$List$filterMap = F2(function(f, xs) {
-        return A3($elm$core$List$foldr, $elm$core$List$maybeCons(f), _List_Nil, xs);
-    });
-    var $author$project$Main$categoryView = F2(function(model, category) {
+    var $author$project$Main$categoryView = F2(function(model, _v0) {
+        var category = _v0.a;
+        var buckets = _v0.b;
         var newBucketInput = A2($elm$core$Maybe$withDefault, '', A2($author$project$Data$IdDict$get, category.id, model.newBucketInputs));
-        var buckets = A2($elm$core$List$filterMap, function(bucketId) {
-            return A2($author$project$Data$IdDict$get, bucketId, model.buckets);
-        }, A2($elm$core$Maybe$withDefault, _List_Nil, A2($author$project$Data$IdDict$get, category.id, model.bucketsOrder)));
         var addBucket = A2($author$project$Main$AddBucket, category.id, newBucketInput);
         return A2($elm$html$Html$div, _List_fromArray([
             $elm$html$Html$Attributes$class('p-2 border bg-slate-50 flex flex-col gap-2')
@@ -5132,10 +5152,16 @@ type alias Process =
     });
     var $elm$html$Html$span = _VirtualDom_node('span');
     var $author$project$Icons$trashCan = A2($author$project$Icons$fontAwesomeIcon, '0 0 448 512', 'M32 464C32 490.5 53.5 512 80 512h288c26.5 0 48-21.5 48-48V128H32V464zM304 208C304 199.1 311.1 192 320 192s16 7.125 16 16v224c0 8.875-7.125 16-16 16s-16-7.125-16-16V208zM208 208C208 199.1 215.1 192 224 192s16 7.125 16 16v224c0 8.875-7.125 16-16 16s-16-7.125-16-16V208zM112 208C112 199.1 119.1 192 128 192s16 7.125 16 16v224C144 440.9 136.9 448 128 448s-16-7.125-16-16V208zM432 32H320l-11.58-23.16c-2.709-5.42-8.25-8.844-14.31-8.844H153.9c-6.061 0-11.6 3.424-14.31 8.844L128 32H16c-8.836 0-16 7.162-16 16V80c0 8.836 7.164 16 16 16h416c8.838 0 16-7.164 16-16V48C448 39.16 440.8 32 432 32z');
+    var $turboMaCk$any_dict$Dict$Any$values = A2($elm$core$Basics$composeL, $elm$core$List$map($elm$core$Tuple$second), $turboMaCk$any_dict$Dict$Any$toList);
+    var $author$project$Data$IdDict$values = function(_v0) {
+        var dict = _v0.a;
+        return $turboMaCk$any_dict$Dict$Any$values(dict);
+    };
     var $author$project$Main$view = function(model) {
         var totalValue = A3($elm$core$List$foldl, $author$project$Data$Money$add, $author$project$Data$Money$zero, A2($elm$core$List$map, function($) {
             return $.value;
         }, $author$project$Data$IdDict$values(model.buckets)));
+        var categoriesAndBuckets = $author$project$Main$sortedCategoriesAndBuckets(model);
         var addCategory = $author$project$Main$AddCategory(model.newCategoryInput);
         return A2($elm$html$Html$div, _List_fromArray([
             $elm$html$Html$Attributes$class('p-2 flex flex-col gap-2 tabular-nums')
@@ -5157,9 +5183,7 @@ type alias Process =
             ])),
             A2($elm$html$Html$div, _List_fromArray([
                 $elm$html$Html$Attributes$class('flex flex-col gap-2')
-            ]), A2($elm$core$List$map, $author$project$Main$categoryView(model), A2($elm$core$List$filterMap, function(categoryId) {
-                return A2($author$project$Data$IdDict$get, categoryId, model.categories);
-            }, model.categoriesOrder))),
+            ]), A2($elm$core$List$map, $author$project$Main$categoryView(model), categoriesAndBuckets)),
             A2($elm$html$Html$div, _List_fromArray([
                 $elm$html$Html$Attributes$class('flex gap-2')
             ]), _List_fromArray([
@@ -5228,4 +5252,4 @@ $d3d62a653380dacf$var$app.ports.saveToLocalStorage.subscribe((string)=>{
 });
 
 
-//# sourceMappingURL=index.36f3e742.js.map
+//# sourceMappingURL=index.4d10ea66.js.map
