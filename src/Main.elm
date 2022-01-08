@@ -577,7 +577,7 @@ categoryView model category =
                 ]
             ]
         , Html.div
-            [ Attrs.class "flex flex-col" ]
+            [ Attrs.class "flex flex-col gap-1" ]
             (buckets
                 |> List.map (bucketView model)
             )
