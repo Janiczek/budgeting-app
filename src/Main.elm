@@ -717,7 +717,9 @@ bucketView model bucket =
                             [ Icons.xmark ]
                         , button
                             Sky
-                            [ Events.onClick <| FinishMoneyOp bucket.id ]
+                            [ Events.onClick <| FinishMoneyOp bucket.id
+                            , Attrs.disabled <| not <| isValidNumber valueString
+                            ]
                             [ Icons.check ]
                         ]
             , button
