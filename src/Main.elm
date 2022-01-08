@@ -1,9 +1,9 @@
-module Main exposing (main)
+port module Main exposing (main)
 
 import Browser
 import Browser.Dom
 import Data.Bucket as Bucket exposing (Bucket, BucketId, BucketIdTag)
-import Data.Category exposing (Category, CategoryId, CategoryIdTag)
+import Data.Category as Category exposing (Category, CategoryId, CategoryIdTag)
 import Data.Id
 import Data.IdDict as IdDict exposing (IdDict)
 import Data.IdSet as IdSet exposing (IdSet)
@@ -13,12 +13,19 @@ import Html.Attributes as Attrs
 import Html.Events as Events
 import Html.Events.Extra as Events
 import Icons
+import Json.Decode as Decode exposing (Decoder)
+import Json.Encode as Encode
 import Random
 import Task
 
 
+port saveToLocalStorage : String -> Cmd msg
+
+
 type alias Flags =
-    ()
+    { idSeed : Int
+    , savedModel : Maybe String
+    }
 
 
 type alias Model =
@@ -50,9 +57,11 @@ type Msg
     | RemoveBucket BucketId
     | StartMoneyOp BucketId MoneyOp
     | SetMoneyOpInput BucketId String
+    | SelectMoneyOpTargetBucket BucketId BucketId
     | FinishMoneyOp BucketId
     | CancelMoneyOp BucketId
     | FocusAttempted
+    | ResetModel
 
 
 type MoneyOp
@@ -66,33 +75,78 @@ main : Program Flags Model Msg
 main =
     Browser.element
         { init = init
-        , update = update
+        , update = update_
         , view = view
         , subscriptions = subscriptions
         }
 
 
+type alias SavedModel =
+    { categories : IdDict CategoryIdTag Category
+    , buckets : IdDict BucketIdTag Bucket
+    , categoriesOrder : List CategoryId
+    , bucketsOrder : IdDict CategoryIdTag (List BucketId)
+    }
+
+
+savedModelDecoder : Decoder SavedModel
+savedModelDecoder =
+    Decode.map4 SavedModel
+        (Decode.field "categories" (IdDict.decoder Category.decoder))
+        (Decode.field "buckets" (IdDict.decoder Bucket.decoder))
+        (Decode.field "categoriesOrder" (Decode.list Data.Id.decoder))
+        (Decode.field "bucketsOrder" (IdDict.decoder (Decode.list Data.Id.decoder)))
+
+
 init : Flags -> ( Model, Cmd Msg )
-init () =
-    ( { categories = IdDict.empty
-      , buckets = IdDict.empty
-
-      --
-      , categoriesOrder = []
-      , bucketsOrder = IdDict.empty
-
-      --
-      , newCategoryInput = ""
-      , newBucketInputs = IdDict.empty
-
-      --
-      , bucketMoneyOps = IdDict.empty
-
-      --
-      , idSeed = Random.initialSeed 0
-      }
-    , focus AddCategoryInput
+init flags =
+    let
+        savedModel =
+            flags.savedModel
+                |> Maybe.andThen
+                    (\savedModelString ->
+                        savedModelString
+                            |> Decode.decodeString savedModelDecoder
+                            |> Result.toMaybe
+                    )
+                |> Maybe.withDefault initSavedModel
+    in
+    ( initModel (Random.initialSeed flags.idSeed) savedModel
+    , Cmd.batch
+        [ focus AddCategoryInput
+        , saveToLocalStorage (encodeSavedModel savedModel)
+        ]
     )
+
+
+initModel : Random.Seed -> SavedModel -> Model
+initModel idSeed savedModel =
+    { categories = savedModel.categories
+    , buckets = savedModel.buckets
+
+    --
+    , categoriesOrder = savedModel.categoriesOrder
+    , bucketsOrder = savedModel.bucketsOrder
+
+    --
+    , newCategoryInput = ""
+    , newBucketInputs = IdDict.empty
+
+    --
+    , bucketMoneyOps = IdDict.empty
+
+    --
+    , idSeed = idSeed
+    }
+
+
+initSavedModel : SavedModel
+initSavedModel =
+    { categories = IdDict.empty
+    , buckets = IdDict.empty
+    , categoriesOrder = []
+    , bucketsOrder = IdDict.empty
+    }
 
 
 type DomId
@@ -126,9 +180,49 @@ focus id =
         |> Task.attempt (\_ -> FocusAttempted)
 
 
+encodeSavedModel : SavedModel -> String
+encodeSavedModel model =
+    [ ( "categories", IdDict.encode Category.encode model.categories )
+    , ( "buckets", IdDict.encode Bucket.encode model.buckets )
+    , ( "categoriesOrder", Encode.list Data.Id.encode model.categoriesOrder )
+    , ( "bucketsOrder", IdDict.encode (Encode.list Data.Id.encode) model.bucketsOrder )
+    ]
+        |> Encode.object
+        |> Encode.encode 0
+
+
+update_ : Msg -> Model -> ( Model, Cmd Msg )
+update_ msg model =
+    let
+        ( newModel, cmd ) =
+            update msg model
+
+        saveCmd : Cmd Msg
+        saveCmd =
+            saveToLocalStorage (encodeSavedModel (getSavedModel newModel))
+    in
+    ( newModel
+    , Cmd.batch [ cmd, saveCmd ]
+    )
+
+
+getSavedModel : Model -> SavedModel
+getSavedModel model =
+    { categories = model.categories
+    , buckets = model.buckets
+    , categoriesOrder = model.categoriesOrder
+    , bucketsOrder = model.bucketsOrder
+    }
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        ResetModel ->
+            ( initModel model.idSeed initSavedModel
+            , Cmd.none
+            )
+
         FocusAttempted ->
             ( model, Cmd.none )
 
@@ -243,6 +337,25 @@ update msg model =
 
         CancelMoneyOp bucketId ->
             ( { model | bucketMoneyOps = IdDict.remove bucketId model.bucketMoneyOps }
+            , Cmd.none
+            )
+
+        SelectMoneyOpTargetBucket bucketId targetBucketId ->
+            ( { model
+                | bucketMoneyOps =
+                    IdDict.update bucketId
+                        (Maybe.map
+                            (\op ->
+                                case op of
+                                    MoveToM _ input_ ->
+                                        MoveToM (Just targetBucketId) input_
+
+                                    _ ->
+                                        op
+                            )
+                        )
+                        model.bucketMoneyOps
+              }
             , Cmd.none
             )
 
@@ -363,7 +476,7 @@ view model =
             AddCategory model.newCategoryInput
     in
     Html.div
-        [ Attrs.class "p-2 flex flex-col gap-2" ]
+        [ Attrs.class "p-2 flex flex-col gap-2 tabular-nums" ]
         [ Html.div
             [ Attrs.class "flex justify-between" ]
             [ Html.span
@@ -394,6 +507,37 @@ view model =
                 [ Events.onClick addCategory ]
                 [ Html.text "Add category" ]
             ]
+        , debugView "categories" model.categories
+        , debugView "buckets" model.buckets
+        , debugView "categoriesOrder" model.categoriesOrder
+        , debugView "bucketsOrder" model.bucketsOrder
+        , Html.div []
+            [ button
+                Orange
+                [ Events.onClick ResetModel
+                ]
+                [ Icons.trashCan
+                , Html.text "Nuke the model"
+                ]
+            ]
+        ]
+
+
+debugView : String -> a -> Html msg
+debugView label value =
+    Html.div
+        [ Attrs.class "flex flex-col gap-2 p-2 border border-fuchsia-100 bg-fuchsia-50" ]
+        [ Html.div
+            [ Attrs.class "text-fuchsia-700 text-[14px]" ]
+            [ Html.text "Debugging "
+            , Html.code
+                [ Attrs.class "border border-fuchsia-200 bg-fuchsia-100 px-1 text-[12px]" ]
+                [ Html.text label ]
+            , Html.text ":"
+            ]
+        , Html.pre
+            [ Attrs.class "break-all whitespace-pre-wrap overflow-x-hidden p-2 bg-fuchsia-100 text-[12px] text-fuchsia-600" ]
+            [ Html.text <| Debug.toString value ]
         ]
 
 
@@ -402,9 +546,10 @@ categoryView model category =
     let
         buckets : List Bucket
         buckets =
-            model.buckets
-                |> IdDict.filter (\_ bucket -> bucket.categoryId == category.id)
-                |> IdDict.values
+            model.bucketsOrder
+                |> IdDict.get category.id
+                |> Maybe.withDefault []
+                |> List.filterMap (\bucketId -> IdDict.get bucketId model.buckets)
 
         newBucketInput : String
         newBucketInput =
@@ -421,12 +566,8 @@ categoryView model category =
         [ Html.div
             [ Attrs.class "flex justify-between" ]
             [ Html.div
-                [ Attrs.class "flex gap-1" ]
-                [ Html.text "Category: "
-                , Html.span
-                    [ Attrs.class "font-semibold" ]
-                    [ Html.text category.name ]
-                ]
+                [ Attrs.class "font-semibold" ]
+                [ Html.text category.name ]
             , Html.div
                 [ Attrs.class "flex gap-1" ]
                 [ button
@@ -436,12 +577,12 @@ categoryView model category =
                 ]
             ]
         , Html.div
-            [ Attrs.class "flex flex-col pl-4" ]
+            [ Attrs.class "flex flex-col" ]
             (buckets
                 |> List.map (bucketView model)
             )
         , Html.div
-            [ Attrs.class "flex gap-2 pl-4" ]
+            [ Attrs.class "flex gap-2" ]
             [ input
                 [ Events.onInput <| SetNewBucketInput category.id
                 , Events.onEnter addBucket
@@ -484,16 +625,20 @@ bucketView model bucket =
                     [ Events.onClick <| FinishMoneyOp bucket.id ]
                     [ Icons.check ]
                 ]
+
+        targetBucketOptionView : Maybe BucketId -> Bucket -> Html Msg
+        targetBucketOptionView selectedTargetBucketId targetBucket =
+            Html.option
+                [ Attrs.selected <| selectedTargetBucketId == Just targetBucket.id
+                , Attrs.value <| Data.Id.unwrap targetBucket.id
+                ]
+                [ Html.text <| targetBucket.name ]
     in
     Html.div
-        [ Attrs.class "flex justify-between" ]
+        [ Attrs.class "px-2 py-1 border bg-slate-100 flex justify-between" ]
         [ Html.div
-            [ Attrs.class "flex gap-2" ]
-            [ Html.text "Bucket: "
-            , Html.span
-                [ Attrs.class "font-semibold" ]
-                [ Html.text bucket.name ]
-            ]
+            [ Attrs.class "font-semibold" ]
+            [ Html.text bucket.name ]
         , Html.div
             [ Attrs.class "flex gap-2" ]
             [ valuePill bucket.value
@@ -532,7 +677,47 @@ bucketView model bucket =
                         "Amount to set"
 
                 Just (MoveToM targetBucketId valueString) ->
-                    Html.div [] [ Html.text "TODO move money" ]
+                    let
+                        otherBuckets : List Bucket
+                        otherBuckets =
+                            model.buckets
+                                |> IdDict.values
+                                |> List.filter (.id >> (/=) bucket.id)
+
+                        targetBucketMsgDecoder : Decoder Msg
+                        targetBucketMsgDecoder =
+                            Decode.at [ "target", "value" ] Data.Id.decoder
+                                |> Decode.map (SelectMoneyOpTargetBucket bucket.id)
+                    in
+                    Html.div
+                        [ Attrs.class "flex gap-1" ]
+                        [ input
+                            [ Events.onInput <| SetMoneyOpInput bucket.id
+                            , Events.onEnter <| FinishMoneyOp bucket.id
+                            , Attrs.placeholder "Amount to move"
+                            , domId <| MoneyOpInput bucket.id
+                            ]
+                            valueString
+                        , Html.select
+                            [ Attrs.class "appearance-none border px-2 bg-sky-100 rounded border-sky-300 border hover:bg-sky-200 hover:border-sky-400"
+                            , Events.on "change" targetBucketMsgDecoder
+                            ]
+                            (Html.option
+                                [ Attrs.disabled True
+                                , Attrs.selected <| targetBucketId == Nothing
+                                ]
+                                [ Html.text "Move where? ▼" ]
+                                :: List.map (targetBucketOptionView targetBucketId) otherBuckets
+                            )
+                        , button
+                            Sky
+                            [ Events.onClick <| CancelMoneyOp bucket.id ]
+                            [ Icons.xmark ]
+                        , button
+                            Sky
+                            [ Events.onClick <| FinishMoneyOp bucket.id ]
+                            [ Icons.check ]
+                        ]
             , button
                 Orange
                 [ Events.onClick <| RemoveBucket bucket.id ]
@@ -559,7 +744,7 @@ buttonColor color =
 button : ButtonColor -> List (Attribute msg) -> List (Html msg) -> Html msg
 button color attrs contents =
     Html.button
-        (Attrs.class "border px-2 rounded border"
+        (Attrs.class "border px-2 rounded border flex flex-row gap-1 items-center"
             :: buttonColor color
             :: attrs
         )

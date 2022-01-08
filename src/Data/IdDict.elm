@@ -1,6 +1,8 @@
 module Data.IdDict exposing
     ( IdDict
+    , decoder
     , empty
+    , encode
     , filter
     , fromList
     , get
@@ -13,6 +15,8 @@ module Data.IdDict exposing
 
 import Data.Id exposing (Id)
 import Dict.Any exposing (AnyDict)
+import Json.Decode as Decode exposing (Decoder)
+import Json.Encode as Encode
 
 
 type IdDict tag value
@@ -62,3 +66,17 @@ filter pred (IdDict dict) =
 update : Id tag -> (Maybe value -> Maybe value) -> IdDict tag value -> IdDict tag value
 update id fn (IdDict dict) =
     IdDict <| Dict.Any.update id fn dict
+
+
+encode : (value -> Encode.Value) -> IdDict tag value -> Encode.Value
+encode encodeValue (IdDict dict) =
+    Dict.Any.encode Data.Id.unwrap encodeValue dict
+
+
+decoder : Decoder value -> Decoder (IdDict tag value)
+decoder valueDecoder =
+    Dict.Any.decode
+        (\idString _ -> Data.Id.fromString idString)
+        Data.Id.unwrap
+        valueDecoder
+        |> Decode.map IdDict

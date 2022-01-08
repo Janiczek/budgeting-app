@@ -1,16 +1,20 @@
 module Data.Money exposing
     ( Money
     , add
+    , decoder
+    , encode
     , fromString
     , subtract
     , toString
     , zero
     )
 
+import Json.Decode as Decode exposing (Decoder)
+import Json.Encode as Encode
+
+
 {-| Cents are included, so Money 12355 is really 123.55
 -}
-
-
 type Money
     = Money Int
 
@@ -99,3 +103,13 @@ subtract (Money int1) (Money int2) =
 zero : Money
 zero =
     Money 0
+
+
+encode : Money -> Encode.Value
+encode (Money int) =
+    Encode.int int
+
+
+decoder : Decoder Money
+decoder =
+    Decode.map Money Decode.int
