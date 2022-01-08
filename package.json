@@ -1,5 +1,5 @@
 {
-  "license": "UNLICENSED",
+  "license": "BSD-3-Clause",
   "scripts": {
     "start": "snowpack dev --config snowpack.config.mjs"
   },
