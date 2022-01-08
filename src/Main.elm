@@ -622,7 +622,9 @@ bucketView model bucket =
                     [ Icons.xmark ]
                 , button
                     Sky
-                    [ Events.onClick <| FinishMoneyOp bucket.id ]
+                    [ Events.onClick <| FinishMoneyOp bucket.id
+                    , Attrs.disabled <| not <| isValidNumber valueString
+                    ]
                     [ Icons.check ]
                 ]
 
@@ -726,6 +728,20 @@ bucketView model bucket =
         ]
 
 
+isValidNumber : String -> Bool
+isValidNumber valueString =
+    case Money.fromString valueString of
+        Just value ->
+            let
+                ( whole, cents ) =
+                    Money.toParts value
+            in
+            whole >= 0
+
+        Nothing ->
+            False
+
+
 type ButtonColor
     = Sky
     | Orange
@@ -744,7 +760,7 @@ buttonColor color =
 button : ButtonColor -> List (Attribute msg) -> List (Html msg) -> Html msg
 button color attrs contents =
     Html.button
-        (Attrs.class "border px-2 rounded border flex flex-row gap-1 items-center"
+        (Attrs.class "border px-2 rounded border flex flex-row gap-1 items-center disabled:cursor-not-allowed disabled:bg-gray-200 disabled:border-gray-400 disabled:text-gray-400 disabled:hover:bg-gray-300"
             :: buttonColor color
             :: attrs
         )

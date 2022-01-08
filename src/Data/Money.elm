@@ -5,6 +5,7 @@ module Data.Money exposing
     , encode
     , fromString
     , subtract
+    , toParts
     , toString
     , zero
     )
@@ -22,6 +23,13 @@ type Money
 fromParts : Int -> Int -> Money
 fromParts whole cents =
     Money <| whole * 100 + cents
+
+
+toParts : Money -> ( Int, Int )
+toParts (Money n) =
+    ( n // 100
+    , n |> modBy 100
+    )
 
 
 {-|
@@ -74,13 +82,10 @@ fromString string =
 
 
 toString : Money -> String
-toString (Money int) =
+toString money =
     let
-        whole =
-            int // 100
-
-        cents =
-            int |> modBy 100
+        ( whole, cents ) =
+            toParts money
     in
     String.fromInt whole
         ++ "."
