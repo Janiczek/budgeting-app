@@ -31,6 +31,7 @@ type alias Flags =
 type alias Model =
     { categories : IdDict CategoryIdTag Category
     , buckets : IdDict BucketIdTag Bucket
+    , toBeBudgeted : Money
 
     --
     , categoriesOrder : List CategoryId
@@ -42,6 +43,7 @@ type alias Model =
 
     --
     , bucketMoneyOps : IdDict BucketIdTag MoneyOp
+    , toBeBudgetedMoneyOp : Maybe MoneyOp
 
     --
     , idSeed : Random.Seed
@@ -55,20 +57,24 @@ type Msg
     | AddBucket CategoryId String
     | RemoveCategory CategoryId
     | RemoveBucket BucketId
-    | StartMoneyOp BucketId MoneyOp
-    | SetMoneyOpInput BucketId String
-    | SelectMoneyOpTargetBucket BucketId BucketId
-    | FinishMoneyOp BucketId
-    | CancelMoneyOp BucketId
+    | StartMoneyOp BucketType MoneyOp
+    | SetMoneyOpInput BucketType String
+    | SelectMoneyOpTargetBucket BucketType BucketType
+    | FinishMoneyOp BucketType
+    | CancelMoneyOp BucketType
     | FocusAttempted
-    | ResetModel
 
 
 type MoneyOp
     = SubtractM String
     | AddM String
     | SetM String
-    | MoveToM (Maybe BucketId) String
+    | MoveToM (Maybe BucketType) String
+
+
+type BucketType
+    = ToBeBudgeted
+    | NormalBucket BucketId
 
 
 main : Program Flags Model Msg
@@ -84,6 +90,7 @@ main =
 type alias SavedModel =
     { categories : IdDict CategoryIdTag Category
     , buckets : IdDict BucketIdTag Bucket
+    , toBeBudgeted : Money
     , categoriesOrder : List CategoryId
     , bucketsOrder : IdDict CategoryIdTag (List BucketId)
     }
@@ -91,9 +98,10 @@ type alias SavedModel =
 
 savedModelDecoder : Decoder SavedModel
 savedModelDecoder =
-    Decode.map4 SavedModel
+    Decode.map5 SavedModel
         (Decode.field "categories" (IdDict.decoder Category.decoder))
         (Decode.field "buckets" (IdDict.decoder Bucket.decoder))
+        (Decode.field "toBeBudgeted" Money.decoder)
         (Decode.field "categoriesOrder" (Decode.list Data.Id.decoder))
         (Decode.field "bucketsOrder" (IdDict.decoder (Decode.list Data.Id.decoder)))
 
@@ -123,6 +131,7 @@ initModel : Random.Seed -> SavedModel -> Model
 initModel idSeed savedModel =
     { categories = savedModel.categories
     , buckets = savedModel.buckets
+    , toBeBudgeted = savedModel.toBeBudgeted
 
     --
     , categoriesOrder = savedModel.categoriesOrder
@@ -134,6 +143,7 @@ initModel idSeed savedModel =
 
     --
     , bucketMoneyOps = IdDict.empty
+    , toBeBudgetedMoneyOp = Nothing
 
     --
     , idSeed = idSeed
@@ -144,6 +154,7 @@ initSavedModel : SavedModel
 initSavedModel =
     { categories = IdDict.empty
     , buckets = IdDict.empty
+    , toBeBudgeted = Money.zero
     , categoriesOrder = []
     , bucketsOrder = IdDict.empty
     }
@@ -152,7 +163,7 @@ initSavedModel =
 type DomId
     = AddCategoryInput
     | AddBucketInput CategoryId
-    | MoneyOpInput BucketId
+    | MoneyOpInput BucketType
 
 
 domIdToString : DomId -> String
@@ -164,8 +175,8 @@ domIdToString domId_ =
         AddBucketInput categoryId ->
             "add-bucket-" ++ Data.Id.unwrap categoryId
 
-        MoneyOpInput bucketId ->
-            "money-op-" ++ Data.Id.unwrap bucketId
+        MoneyOpInput bucketType ->
+            "money-op-" ++ bucketTypeToString bucketType
 
 
 domId : DomId -> Attribute msg
@@ -184,6 +195,7 @@ encodeSavedModel : SavedModel -> String
 encodeSavedModel model =
     [ ( "categories", IdDict.encode Category.encode model.categories )
     , ( "buckets", IdDict.encode Bucket.encode model.buckets )
+    , ( "toBeBudgeted", Money.encode model.toBeBudgeted )
     , ( "categoriesOrder", Encode.list Data.Id.encode model.categoriesOrder )
     , ( "bucketsOrder", IdDict.encode (Encode.list Data.Id.encode) model.bucketsOrder )
     ]
@@ -210,6 +222,7 @@ getSavedModel : Model -> SavedModel
 getSavedModel model =
     { categories = model.categories
     , buckets = model.buckets
+    , toBeBudgeted = model.toBeBudgeted
     , categoriesOrder = model.categoriesOrder
     , bucketsOrder = model.bucketsOrder
     }
@@ -218,11 +231,6 @@ getSavedModel model =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        ResetModel ->
-            ( initModel model.idSeed initSavedModel
-            , Cmd.none
-            )
-
         FocusAttempted ->
             ( model, Cmd.none )
 
@@ -296,21 +304,31 @@ update msg model =
                 )
 
         RemoveCategory categoryId ->
-            -- TODO modal with moving the money somewhere?
-            -- TODO or at least confirm modal
             let
-                affectedBuckets : IdSet BucketIdTag
-                affectedBuckets =
+                affectedBucketsDict : IdDict BucketIdTag Bucket
+                affectedBucketsDict =
                     model.buckets
                         |> IdDict.filter (\_ bucket -> bucket.categoryId == categoryId)
+
+                affectedBucketIds : IdSet BucketIdTag
+                affectedBucketIds =
+                    affectedBucketsDict
                         |> IdDict.keys
                         |> IdSet.fromList
+
+                lostValue : Money
+                lostValue =
+                    affectedBucketsDict
+                        |> IdDict.values
+                        |> List.map .value
+                        |> List.foldl Money.add Money.zero
             in
             ( { model
                 | categories = IdDict.remove categoryId model.categories
-                , buckets = IdDict.filter (\bucketId _ -> not (IdSet.member bucketId affectedBuckets)) model.buckets
+                , buckets = IdDict.filter (\bucketId _ -> not (IdSet.member bucketId affectedBucketIds)) model.buckets
                 , categoriesOrder = List.filter ((/=) categoryId) model.categoriesOrder
                 , bucketsOrder = IdDict.remove categoryId model.bucketsOrder
+                , toBeBudgeted = Money.add lostValue model.toBeBudgeted
               }
             , Cmd.none
             )
@@ -321,89 +339,95 @@ update msg model =
                     ( model, Cmd.none )
 
                 Just bucket ->
-                    -- TODO modal with moving the money somewhere?
-                    -- TODO or at least confirm modal
                     ( { model
                         | buckets = IdDict.filter (\id _ -> id /= bucketId) model.buckets
                         , bucketsOrder = IdDict.update bucket.categoryId (Maybe.map (List.filter ((/=) bucketId))) model.bucketsOrder
+                        , toBeBudgeted = Money.add bucket.value model.toBeBudgeted
                       }
                     , Cmd.none
                     )
 
-        StartMoneyOp bucketId moneyOp ->
-            ( { model | bucketMoneyOps = IdDict.insert bucketId moneyOp model.bucketMoneyOps }
-            , focus <| MoneyOpInput bucketId
+        StartMoneyOp bucketType moneyOp ->
+            ( case bucketType of
+                ToBeBudgeted ->
+                    { model | toBeBudgetedMoneyOp = Just moneyOp }
+
+                NormalBucket bucketId ->
+                    { model | bucketMoneyOps = IdDict.insert bucketId moneyOp model.bucketMoneyOps }
+            , focus <| MoneyOpInput bucketType
             )
 
-        CancelMoneyOp bucketId ->
-            ( { model | bucketMoneyOps = IdDict.remove bucketId model.bucketMoneyOps }
+        CancelMoneyOp bucketType ->
+            ( model
+                |> closeMoneyOp bucketType
             , Cmd.none
             )
 
-        SelectMoneyOpTargetBucket bucketId targetBucketId ->
-            ( { model
-                | bucketMoneyOps =
-                    IdDict.update bucketId
-                        (Maybe.map
-                            (\op ->
-                                case op of
-                                    MoveToM _ input_ ->
-                                        MoveToM (Just targetBucketId) input_
+        SelectMoneyOpTargetBucket bucketType targetBucketType ->
+            let
+                fn op =
+                    case op of
+                        MoveToM _ input_ ->
+                            MoveToM (Just targetBucketType) input_
 
-                                    _ ->
-                                        op
-                            )
-                        )
-                        model.bucketMoneyOps
-              }
+                        _ ->
+                            op
+            in
+            ( case bucketType of
+                ToBeBudgeted ->
+                    { model | toBeBudgetedMoneyOp = Maybe.map fn model.toBeBudgetedMoneyOp }
+
+                NormalBucket bucketId ->
+                    { model | bucketMoneyOps = IdDict.update bucketId (Maybe.map fn) model.bucketMoneyOps }
             , Cmd.none
             )
 
-        SetMoneyOpInput bucketId input_ ->
-            ( { model
-                | bucketMoneyOps =
-                    IdDict.update bucketId
-                        (Maybe.map
-                            (\op ->
-                                case op of
-                                    AddM _ ->
-                                        AddM input_
+        SetMoneyOpInput bucketType input_ ->
+            let
+                fn op =
+                    case op of
+                        AddM _ ->
+                            AddM input_
 
-                                    SubtractM _ ->
-                                        SubtractM input_
+                        SubtractM _ ->
+                            SubtractM input_
 
-                                    SetM _ ->
-                                        SetM input_
+                        SetM _ ->
+                            SetM input_
 
-                                    MoveToM targetBucketId _ ->
-                                        MoveToM targetBucketId input_
-                            )
-                        )
-                        model.bucketMoneyOps
-              }
+                        MoveToM targetBucketId _ ->
+                            MoveToM targetBucketId input_
+            in
+            ( case bucketType of
+                ToBeBudgeted ->
+                    { model | toBeBudgetedMoneyOp = Maybe.map fn model.toBeBudgetedMoneyOp }
+
+                NormalBucket bucketId ->
+                    { model | bucketMoneyOps = IdDict.update bucketId (Maybe.map fn) model.bucketMoneyOps }
             , Cmd.none
             )
 
-        FinishMoneyOp bucketId ->
-            Maybe.map2 Tuple.pair
-                (IdDict.get bucketId model.bucketMoneyOps)
-                (IdDict.get bucketId model.buckets)
+        FinishMoneyOp bucketType ->
+            getMoneyOp bucketType model
                 |> Maybe.andThen
-                    (\( moneyOp, bucket ) ->
+                    (\moneyOp ->
                         let
                             singleBucketOp : (Money -> Money) -> ( Model, Cmd Msg )
                             singleBucketOp moneyFn =
-                                let
-                                    newBucket : Bucket
-                                    newBucket =
-                                        { bucket | value = moneyFn bucket.value }
-                                in
-                                ( { model
-                                    | buckets =
-                                        model.buckets
-                                            |> IdDict.insert bucketId newBucket
-                                    , bucketMoneyOps = IdDict.remove bucketId model.bucketMoneyOps
-                                  }
+                                ( case bucketType of
+                                    ToBeBudgeted ->
+                                        { model
+                                            | toBeBudgeted = moneyFn model.toBeBudgeted
+                                            , toBeBudgetedMoneyOp = Nothing
+                                        }
+
+                                    NormalBucket bucketId ->
+                                        { model
+                                            | buckets =
+                                                model.buckets
+                                                    |> IdDict.update bucketId (Maybe.map (\bucket -> { bucket | value = moneyFn bucket.value }))
+                                            , bucketMoneyOps = IdDict.remove bucketId model.bucketMoneyOps
+                                        }
                                 , Cmd.none
                                 )
                         in
@@ -420,44 +444,60 @@ update msg model =
                                 Money.fromString valueString
                                     |> Maybe.map (singleBucketOp << (\value _ -> value))
 
-                            MoveToM targetBucketId valueString ->
+                            MoveToM targetBucketType valueString ->
                                 Maybe.map2
-                                    (\value targetBucket ->
-                                        let
-                                            newSourceBucket : Bucket
-                                            newSourceBucket =
-                                                { bucket
-                                                    | value =
-                                                        bucket.value
-                                                            |> Money.subtract value
-                                                }
-
-                                            newTargetBucket : Bucket
-                                            newTargetBucket =
-                                                { targetBucket
-                                                    | value =
-                                                        targetBucket.value
-                                                            |> Money.add value
-                                                }
-                                        in
-                                        ( { model
-                                            | buckets =
-                                                model.buckets
-                                                    |> IdDict.insert bucketId newSourceBucket
-                                                    |> IdDict.insert targetBucket.id newTargetBucket
-                                            , bucketMoneyOps = IdDict.remove bucketId model.bucketMoneyOps
-                                          }
+                                    (\value targetBucketType_ ->
+                                        ( model
+                                            |> updateMoney bucketType (Money.subtract value)
+                                            |> updateMoney targetBucketType_ (Money.add value)
+                                            |> closeMoneyOp bucketType
+                                            |> closeMoneyOp targetBucketType_
                                         , Cmd.none
                                         )
                                     )
                                     (Money.fromString valueString)
-                                    (targetBucketId |> Maybe.andThen (\id -> IdDict.get id model.buckets))
+                                    targetBucketType
                     )
                 |> Maybe.withDefault ( model, Cmd.none )
 
 
+updateMoney : BucketType -> (Money -> Money) -> Model -> Model
+updateMoney bucketType moneyFn model =
+    case bucketType of
+        ToBeBudgeted ->
+            { model | toBeBudgeted = moneyFn model.toBeBudgeted }
+
+        NormalBucket bucketId ->
+            { model
+                | buckets =
+                    model.buckets
+                        |> IdDict.update bucketId
+                            (Maybe.map (\bucket -> { bucket | value = moneyFn bucket.value }))
+            }
+
+
+closeMoneyOp : BucketType -> Model -> Model
+closeMoneyOp bucketType model =
+    case bucketType of
+        ToBeBudgeted ->
+            { model | toBeBudgetedMoneyOp = Nothing }
+
+        NormalBucket bucketId ->
+            { model | bucketMoneyOps = IdDict.remove bucketId model.bucketMoneyOps }
+
+
+getMoneyOp : BucketType -> Model -> Maybe MoneyOp
+getMoneyOp bucketType model =
+    case bucketType of
+        ToBeBudgeted ->
+            model.toBeBudgetedMoneyOp
+
+        NormalBucket bucketId ->
+            IdDict.get bucketId model.bucketMoneyOps
+
+
 subscriptions : Model -> Sub Msg
-subscriptions model =
+subscriptions _ =
     Sub.none
 
 
@@ -470,6 +510,7 @@ view model =
                 |> IdDict.values
                 |> List.map .value
                 |> List.foldl Money.add Money.zero
+                |> Money.add model.toBeBudgeted
 
         addCategory : Msg
         addCategory =
@@ -486,15 +527,33 @@ view model =
             [ Html.span
                 [ Attrs.class "font-bold" ]
                 [ Html.text "Budgeting" ]
-            , Html.div [ Attrs.class "flex gap-2" ]
-                [ Html.text "Total value: "
-                , valuePill totalValue
+            , Html.div [ Attrs.class "flex flex-col gap-2 items-end" ]
+                [ Html.div [ Attrs.class "flex gap-2" ]
+                    [ Html.text "Total value: "
+                    , valuePill totalValue
+                    ]
+                , Html.div [ Attrs.class "flex gap-2" ]
+                    [ Html.text <| toBeBudgetedName ++ ": "
+                    , valuePill model.toBeBudgeted
+                    , moneyOpView
+                        { startMoneyOp = StartMoneyOp ToBeBudgeted
+                        , selectTargetBucket = SelectMoneyOpTargetBucket ToBeBudgeted
+                        , setMoneyOpInput = SetMoneyOpInput ToBeBudgeted
+                        , finishMoneyOp = FinishMoneyOp ToBeBudgeted
+                        , cancelMoneyOp = CancelMoneyOp ToBeBudgeted
+                        , inputDomId = MoneyOpInput ToBeBudgeted
+                        , currentBucket = ToBeBudgeted
+                        , categoriesAndBuckets = categoriesAndBuckets
+                        , bucketName = getBucketName model
+                        }
+                        model.toBeBudgetedMoneyOp
+                    ]
                 ]
             ]
         , Html.div
             [ Attrs.class "flex flex-col gap-2" ]
             (categoriesAndBuckets
-                |> List.map (categoryView model)
+                |> List.map (categoryView model categoriesAndBuckets)
             )
         , Html.div
             [ Attrs.class "flex gap-2" ]
@@ -510,42 +569,11 @@ view model =
                 [ Events.onClick addCategory ]
                 [ Html.text "Add category" ]
             ]
-        , debugView "categories" model.categories
-        , debugView "buckets" model.buckets
-        , debugView "categoriesOrder" model.categoriesOrder
-        , debugView "bucketsOrder" model.bucketsOrder
-        , Html.div []
-            [ button
-                Orange
-                [ Events.onClick ResetModel
-                ]
-                [ Icons.trashCan
-                , Html.text "Nuke the model"
-                ]
-            ]
         ]
 
 
-debugView : String -> a -> Html msg
-debugView label value =
-    Html.div
-        [ Attrs.class "flex flex-col gap-2 p-2 border border-fuchsia-100 bg-fuchsia-50" ]
-        [ Html.div
-            [ Attrs.class "text-fuchsia-700 text-[14px]" ]
-            [ Html.text "Debugging "
-            , Html.code
-                [ Attrs.class "border border-fuchsia-200 bg-fuchsia-100 px-1 text-[12px]" ]
-                [ Html.text label ]
-            , Html.text ":"
-            ]
-        , Html.pre
-            [ Attrs.class "break-all whitespace-pre-wrap overflow-x-hidden p-2 bg-fuchsia-100 text-[12px] text-fuchsia-600" ]
-            [ Html.text <| Debug.toString value ]
-        ]
-
-
-categoryView : Model -> ( Category, List Bucket ) -> Html Msg
-categoryView model ( category, buckets ) =
+categoryView : Model -> List ( Category, List Bucket ) -> ( Category, List Bucket ) -> Html Msg
+categoryView model categoriesAndBuckets ( category, buckets ) =
     let
         newBucketInput : String
         newBucketInput =
@@ -574,7 +602,7 @@ categoryView model ( category, buckets ) =
             ]
         , Html.div
             [ Attrs.class "flex flex-col gap-1" ]
-            (List.map (bucketView model) buckets)
+            (List.map (bucketView model categoriesAndBuckets) buckets)
         , Html.div
             [ Attrs.class "flex gap-2" ]
             [ input
@@ -607,50 +635,70 @@ sortedCategoriesAndBuckets model =
             )
 
 
-bucketView : Model -> Bucket -> Html Msg
-bucketView model bucket =
+targetBucketOptionsView :
+    { currentBucket : BucketType
+    , selectedTargetBucket : Maybe BucketType
+    , bucketName : BucketType -> String
+    }
+    -> ( Category, List Bucket )
+    -> List (Html msg)
+targetBucketOptionsView config ( category, buckets ) =
+    Html.option
+        [ Attrs.disabled True ]
+        [ Html.text <| "[ " ++ category.name ++ " ]" ]
+        :: List.map (.id >> NormalBucket >> targetBucketOptionView config) buckets
+
+
+toBeBudgetedValue : String
+toBeBudgetedValue =
+    "to-be-budgeted"
+
+
+bucketTypeToString : BucketType -> String
+bucketTypeToString bucketType =
+    case bucketType of
+        ToBeBudgeted ->
+            toBeBudgetedValue
+
+        NormalBucket bucketId ->
+            Data.Id.unwrap bucketId
+
+
+bucketTypeDecoder : Decoder BucketType
+bucketTypeDecoder =
+    Decode.string
+        |> Decode.map
+            (\value ->
+                if value == toBeBudgetedValue then
+                    ToBeBudgeted
+
+                else
+                    NormalBucket <| Data.Id.fromString value
+            )
+
+
+targetBucketOptionView :
+    { currentBucket : BucketType
+    , selectedTargetBucket : Maybe BucketType
+    , bucketName : BucketType -> String
+    }
+    -> BucketType
+    -> Html msg
+targetBucketOptionView config targetBucket =
+    Html.option
+        [ Attrs.selected <| config.selectedTargetBucket == Just targetBucket
+        , Attrs.disabled <| config.currentBucket == targetBucket
+        , Attrs.value <| bucketTypeToString targetBucket
+        ]
+        [ Html.text <| config.bucketName targetBucket ]
+
+
+bucketView : Model -> List ( Category, List Bucket ) -> Bucket -> Html Msg
+bucketView model categoriesAndBuckets bucket =
     let
         moneyOp : Maybe MoneyOp
         moneyOp =
             IdDict.get bucket.id model.bucketMoneyOps
-
-        singleBucketView : String -> String -> Html Msg
-        singleBucketView valueString placeholder =
-            Html.div
-                [ Attrs.class "flex gap-1" ]
-                [ input
-                    [ Events.onInput <| SetMoneyOpInput bucket.id
-                    , Events.onEnter <| FinishMoneyOp bucket.id
-                    , Attrs.placeholder placeholder
-                    , domId <| MoneyOpInput bucket.id
-                    ]
-                    valueString
-                , button
-                    Sky
-                    [ Events.onClick <| CancelMoneyOp bucket.id ]
-                    [ Icons.xmark ]
-                , button
-                    Sky
-                    [ Events.onClick <| FinishMoneyOp bucket.id
-                    , Attrs.disabled <| not <| isValidNumber valueString
-                    ]
-                    [ Icons.check ]
-                ]
-
-        targetBucketOptionsView : Maybe BucketId -> ( Category, List Bucket ) -> List (Html Msg)
-        targetBucketOptionsView selectedTargetBucketId ( category, buckets ) =
-            Html.option
-                [ Attrs.disabled True ]
-                [ Html.text category.name ]
-                :: List.map (targetBucketOptionView selectedTargetBucketId) buckets
-
-        targetBucketOptionView : Maybe BucketId -> Bucket -> Html Msg
-        targetBucketOptionView selectedTargetBucketId targetBucket =
-            Html.option
-                [ Attrs.selected <| selectedTargetBucketId == Just targetBucket.id
-                , Attrs.value <| Data.Id.unwrap targetBucket.id
-                ]
-                [ Html.text <| "- " ++ targetBucket.name ]
     in
     Html.div
         [ Attrs.class "px-2 py-1 border bg-slate-100 flex justify-between" ]
@@ -660,80 +708,18 @@ bucketView model bucket =
         , Html.div
             [ Attrs.class "flex gap-2" ]
             [ valuePill bucket.value
-            , case moneyOp of
-                Nothing ->
-                    Html.div
-                        [ Attrs.class "flex gap-1 align-stretch" ]
-                        [ button
-                            Sky
-                            [ Events.onClick <| StartMoneyOp bucket.id (SubtractM "") ]
-                            [ Icons.minus ]
-                        , button
-                            Sky
-                            [ Events.onClick <| StartMoneyOp bucket.id (AddM "") ]
-                            [ Icons.plus ]
-                        , button
-                            Sky
-                            [ Events.onClick <| StartMoneyOp bucket.id (SetM "") ]
-                            [ Icons.equals ]
-                        , button
-                            Sky
-                            [ Events.onClick <| StartMoneyOp bucket.id (MoveToM Nothing "") ]
-                            [ Icons.arrowRight ]
-                        ]
-
-                Just (SubtractM valueString) ->
-                    singleBucketView valueString
-                        "Amount to subtract"
-
-                Just (AddM valueString) ->
-                    singleBucketView valueString
-                        "Amount to add"
-
-                Just (SetM valueString) ->
-                    singleBucketView valueString
-                        "Amount to set"
-
-                Just (MoveToM targetBucketId valueString) ->
-                    let
-                        targetBucketMsgDecoder : Decoder Msg
-                        targetBucketMsgDecoder =
-                            Decode.at [ "target", "value" ] Data.Id.decoder
-                                |> Decode.map (SelectMoneyOpTargetBucket bucket.id)
-                    in
-                    Html.div
-                        [ Attrs.class "flex gap-1" ]
-                        [ input
-                            [ Events.onInput <| SetMoneyOpInput bucket.id
-                            , Events.onEnter <| FinishMoneyOp bucket.id
-                            , Attrs.placeholder "Amount to move"
-                            , domId <| MoneyOpInput bucket.id
-                            ]
-                            valueString
-                        , Html.select
-                            [ Attrs.class "appearance-none border px-2 bg-sky-100 rounded border-sky-300 border hover:bg-sky-200 hover:border-sky-400"
-                            , Events.on "change" targetBucketMsgDecoder
-                            ]
-                            (Html.option
-                                [ Attrs.disabled True
-                                , Attrs.selected <| targetBucketId == Nothing
-                                ]
-                                [ Html.text "Move where? ▼" ]
-                                :: List.concatMap
-                                    (targetBucketOptionsView targetBucketId)
-                                    (sortedCategoriesAndBuckets model)
-                            )
-                        , button
-                            Sky
-                            [ Events.onClick <| CancelMoneyOp bucket.id ]
-                            [ Icons.xmark ]
-                        , button
-                            Sky
-                            [ Events.onClick <| FinishMoneyOp bucket.id
-                            , Attrs.disabled <| not <| isValidNumber valueString
-                            ]
-                            [ Icons.check ]
-                        ]
+            , moneyOpView
+                { startMoneyOp = StartMoneyOp <| NormalBucket bucket.id
+                , selectTargetBucket = SelectMoneyOpTargetBucket <| NormalBucket bucket.id
+                , setMoneyOpInput = SetMoneyOpInput <| NormalBucket bucket.id
+                , finishMoneyOp = FinishMoneyOp <| NormalBucket bucket.id
+                , cancelMoneyOp = CancelMoneyOp <| NormalBucket bucket.id
+                , inputDomId = MoneyOpInput <| NormalBucket bucket.id
+                , categoriesAndBuckets = categoriesAndBuckets
+                , currentBucket = NormalBucket bucket.id
+                , bucketName = getBucketName model
+                }
+                moneyOp
             , button
                 Orange
                 [ Events.onClick <| RemoveBucket bucket.id ]
@@ -742,15 +728,158 @@ bucketView model bucket =
         ]
 
 
+toBeBudgetedName : String
+toBeBudgetedName =
+    "To be budgeted"
+
+
+getBucketName : Model -> BucketType -> String
+getBucketName model bucketType =
+    case bucketType of
+        ToBeBudgeted ->
+            toBeBudgetedName
+
+        NormalBucket bucketId ->
+            IdDict.get bucketId model.buckets
+                |> Maybe.map .name
+                |> Maybe.withDefault "BUG: can't find bucket name!"
+
+
+moneyOpView :
+    { startMoneyOp : MoneyOp -> msg
+    , selectTargetBucket : BucketType -> msg
+    , setMoneyOpInput : String -> msg
+    , finishMoneyOp : msg
+    , cancelMoneyOp : msg
+    , inputDomId : DomId
+    , categoriesAndBuckets : List ( Category, List Bucket )
+    , currentBucket : BucketType
+    , bucketName : BucketType -> String
+    }
+    -> Maybe MoneyOp
+    -> Html msg
+moneyOpView config moneyOp =
+    let
+        singleBucketView : String -> String -> String -> Html msg
+        singleBucketView valueString label placeholder =
+            Html.div
+                [ Attrs.class "flex gap-1" ]
+                [ Html.span [] [ Html.text label ]
+                , input
+                    [ Events.onInput config.setMoneyOpInput
+                    , Events.onEnter config.finishMoneyOp
+                    , Attrs.placeholder placeholder
+                    , domId config.inputDomId
+                    ]
+                    valueString
+                , button
+                    Sky
+                    [ Events.onClick config.cancelMoneyOp ]
+                    [ Icons.xmark ]
+                , button
+                    Sky
+                    [ Events.onClick config.finishMoneyOp
+                    , Attrs.disabled <| not <| isValidNumber valueString
+                    ]
+                    [ Icons.check ]
+                ]
+    in
+    case moneyOp of
+        Nothing ->
+            Html.div
+                [ Attrs.class "flex gap-1 align-stretch" ]
+                [ button
+                    Sky
+                    [ Events.onClick <| config.startMoneyOp <| SubtractM "" ]
+                    [ Icons.minus ]
+                , button
+                    Sky
+                    [ Events.onClick <| config.startMoneyOp <| AddM "" ]
+                    [ Icons.plus ]
+                , button
+                    Sky
+                    [ Events.onClick <| config.startMoneyOp <| SetM "" ]
+                    [ Icons.equals ]
+                , button
+                    Sky
+                    [ Events.onClick <| config.startMoneyOp <| MoveToM Nothing "" ]
+                    [ Icons.arrowRight ]
+                ]
+
+        Just (SubtractM valueString) ->
+            singleBucketView valueString
+                "Subtracting:"
+                "Amount to subtract"
+
+        Just (AddM valueString) ->
+            singleBucketView valueString
+                "Adding:"
+                "Amount to add"
+
+        Just (SetM valueString) ->
+            singleBucketView valueString
+                "Setting to:"
+                "Amount to set"
+
+        Just (MoveToM targetBucket valueString) ->
+            let
+                targetBucketMsgDecoder : Decoder msg
+                targetBucketMsgDecoder =
+                    Decode.at [ "target", "value" ] bucketTypeDecoder
+                        |> Decode.map config.selectTargetBucket
+            in
+            Html.div
+                [ Attrs.class "flex gap-1" ]
+                [ Html.span [] [ Html.text "Moving:" ]
+                , input
+                    [ Events.onInput config.setMoneyOpInput
+                    , Events.onEnter config.finishMoneyOp
+                    , Attrs.placeholder "Amount to move"
+                    , domId config.inputDomId
+                    ]
+                    valueString
+                , Html.select
+                    [ Attrs.class "appearance-none border px-2 bg-sky-100 rounded border-sky-300 border hover:bg-sky-200 hover:border-sky-400"
+                    , Events.on "change" targetBucketMsgDecoder
+                    ]
+                    (Html.option
+                        [ Attrs.disabled True
+                        , Attrs.selected <| targetBucket == Nothing
+                        ]
+                        [ Html.text "Move where? ▼" ]
+                        :: Html.option
+                            [ Attrs.selected <| targetBucket == Just ToBeBudgeted
+                            , Attrs.disabled <| targetBucket == Just ToBeBudgeted || config.currentBucket == ToBeBudgeted
+                            , Attrs.value <| bucketTypeToString ToBeBudgeted
+                            ]
+                            [ Html.text toBeBudgetedName ]
+                        :: List.concatMap
+                            (targetBucketOptionsView
+                                { currentBucket = config.currentBucket
+                                , selectedTargetBucket = targetBucket
+                                , bucketName = config.bucketName
+                                }
+                            )
+                            config.categoriesAndBuckets
+                    )
+                , button
+                    Sky
+                    [ Events.onClick config.cancelMoneyOp ]
+                    [ Icons.xmark ]
+                , button
+                    Sky
+                    [ Events.onClick config.finishMoneyOp
+                    , Attrs.disabled <| not <| isValidNumber valueString
+                    ]
+                    [ Icons.check ]
+                ]
+
+
 isValidNumber : String -> Bool
 isValidNumber valueString =
     case Money.fromString valueString of
-        Just value ->
-            let
-                ( whole, cents ) =
-                    Money.toParts value
-            in
-            whole >= 0
+        Just money ->
+            not (Money.isNegative money)
 
         Nothing ->
             False
@@ -793,6 +922,16 @@ input attrs value =
 
 valuePill : Money -> Html msg
 valuePill money =
+    let
+        color =
+            if Money.isNegative money then
+                Attrs.class "bg-red-200 border-red-400 text-red-600 hover:bg-red-300 hover:border-red-500"
+
+            else
+                Attrs.class "bg-lime-200 border-lime-400 text-lime-600 hover:bg-lime-300 hover:border-lime-500"
+    in
     Html.div
-        [ Attrs.class "rounded bg-lime-200 px-2 border border-lime-400 text-lime-600 hover:bg-lime-300 hover:border-lime-500" ]
+        [ Attrs.class "rounded px-2 border"
+        , color
+        ]
         [ Html.text <| Money.toString money ]

@@ -4,7 +4,6 @@ module Data.IdDict exposing
     , empty
     , encode
     , filter
-    , fromList
     , get
     , insert
     , keys
@@ -26,11 +25,6 @@ type IdDict tag value
 empty : IdDict tag value
 empty =
     IdDict <| Dict.Any.empty Data.Id.unwrap
-
-
-fromList : List ( Id tag, value ) -> IdDict tag value
-fromList list =
-    IdDict <| Dict.Any.fromList Data.Id.unwrap list
 
 
 insert : Id tag -> value -> IdDict tag value -> IdDict tag value
