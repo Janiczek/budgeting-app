@@ -628,13 +628,20 @@ bucketView model bucket =
                     [ Icons.check ]
                 ]
 
+        targetBucketOptionsView : Maybe BucketId -> ( Category, List Bucket ) -> List (Html Msg)
+        targetBucketOptionsView selectedTargetBucketId ( category, buckets ) =
+            Html.option
+                [ Attrs.disabled True ]
+                [ Html.text category.name ]
+                :: List.map (targetBucketOptionView selectedTargetBucketId) buckets
+
         targetBucketOptionView : Maybe BucketId -> Bucket -> Html Msg
         targetBucketOptionView selectedTargetBucketId targetBucket =
             Html.option
                 [ Attrs.selected <| selectedTargetBucketId == Just targetBucket.id
                 , Attrs.value <| Data.Id.unwrap targetBucket.id
                 ]
-                [ Html.text <| targetBucket.name ]
+                [ Html.text <| "- " ++ targetBucket.name ]
     in
     Html.div
         [ Attrs.class "px-2 py-1 border bg-slate-100 flex justify-between" ]
@@ -680,11 +687,19 @@ bucketView model bucket =
 
                 Just (MoveToM targetBucketId valueString) ->
                     let
-                        otherBuckets : List Bucket
-                        otherBuckets =
-                            model.buckets
-                                |> IdDict.values
-                                |> List.filter (.id >> (/=) bucket.id)
+                        sortedCategoriesAndBuckets : List ( Category, List Bucket )
+                        sortedCategoriesAndBuckets =
+                            model.categoriesOrder
+                                |> List.filterMap (\categoryId -> IdDict.get categoryId model.categories)
+                                |> List.map
+                                    (\category ->
+                                        ( category
+                                        , model.bucketsOrder
+                                            |> IdDict.get category.id
+                                            |> Maybe.withDefault []
+                                            |> List.filterMap (\bucketId -> IdDict.get bucketId model.buckets)
+                                        )
+                                    )
 
                         targetBucketMsgDecoder : Decoder Msg
                         targetBucketMsgDecoder =
@@ -709,7 +724,7 @@ bucketView model bucket =
                                 , Attrs.selected <| targetBucketId == Nothing
                                 ]
                                 [ Html.text "Move where? ▼" ]
-                                :: List.map (targetBucketOptionView targetBucketId) otherBuckets
+                                :: List.concatMap (targetBucketOptionsView targetBucketId) sortedCategoriesAndBuckets
                             )
                         , button
                             Sky
