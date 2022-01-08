@@ -4,6 +4,7 @@ module Data.Money exposing
     , decoder
     , encode
     , fromString
+    , isNegative
     , subtract
     , toParts
     , toString
@@ -118,3 +119,11 @@ encode (Money int) =
 decoder : Decoder Money
 decoder =
     Decode.map Money Decode.int
+
+
+isNegative : Money -> Bool
+isNegative money =
+    money
+        |> toParts
+        |> Tuple.first
+        |> (\n -> n < 0)

@@ -745,12 +745,8 @@ bucketView model bucket =
 isValidNumber : String -> Bool
 isValidNumber valueString =
     case Money.fromString valueString of
-        Just value ->
-            let
-                ( whole, cents ) =
-                    Money.toParts value
-            in
-            whole >= 0
+        Just money ->
+            not (Money.isNegative money)
 
         Nothing ->
             False
@@ -793,6 +789,16 @@ input attrs value =
 
 valuePill : Money -> Html msg
 valuePill money =
+    let
+        color =
+            if Money.isNegative money then
+                Attrs.class "bg-red-200 border-red-400 text-red-600 hover:bg-red-300 hover:border-red-500"
+
+            else
+                Attrs.class "bg-lime-200 border-lime-400 text-lime-600 hover:bg-lime-300 hover:border-lime-500"
+    in
     Html.div
-        [ Attrs.class "rounded bg-lime-200 px-2 border border-lime-400 text-lime-600 hover:bg-lime-300 hover:border-lime-500" ]
+        [ Attrs.class "rounded px-2 border"
+        , color
+        ]
         [ Html.text <| Money.toString money ]
