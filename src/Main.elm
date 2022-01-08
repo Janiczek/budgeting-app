@@ -439,12 +439,17 @@ update msg model =
                                                         targetBucket.value
                                                             |> Money.add value
                                                 }
+
+                                            updateMoney : (Money -> Money) -> Maybe Bucket -> Maybe Bucket
+                                            updateMoney fn maybeBucket =
+                                                maybeBucket
+                                                    |> Maybe.map (\bucket_ -> { bucket_ | value = fn bucket_.value })
                                         in
                                         ( { model
                                             | buckets =
                                                 model.buckets
-                                                    |> IdDict.insert bucketId newSourceBucket
-                                                    |> IdDict.insert targetBucket.id newTargetBucket
+                                                    |> IdDict.update bucketId (updateMoney (Money.subtract value))
+                                                    |> IdDict.update targetBucket.id (updateMoney (Money.add value))
                                             , bucketMoneyOps = IdDict.remove bucketId model.bucketMoneyOps
                                           }
                                         , Cmd.none
@@ -649,6 +654,7 @@ bucketView model bucket =
             Html.option
                 [ Attrs.selected <| selectedTargetBucketId == Just targetBucket.id
                 , Attrs.value <| Data.Id.unwrap targetBucket.id
+                , Attrs.disabled <| bucket.id == targetBucket.id
                 ]
                 [ Html.text <| "- " ++ targetBucket.name ]
     in
