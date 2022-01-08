@@ -2,7 +2,7 @@
   "license": "BSD-3-Clause",
   "scripts": {
     "start": "snowpack dev --config snowpack.config.mjs",
-    "build": "rm -rf ./index.* && npx parcel build --no-optimize src/index.html && mv dist/* ./ && sed -i 's/\/index/index/g' index.html"
+    "build": "rm -rf ./index.* && npx parcel build --no-optimize src/index.html && mv dist/* ./ && perl -i -pe's/\/index/index/g' index.html"
   },
   "devDependencies": {
     "@parcel/transformer-elm": "^2.1.1",
