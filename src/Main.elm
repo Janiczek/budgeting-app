@@ -304,21 +304,31 @@ update msg model =
                 )
 
         RemoveCategory categoryId ->
-            -- TODO modal with moving the money somewhere?
-            -- TODO or at least confirm modal
             let
-                affectedBuckets : IdSet BucketIdTag
-                affectedBuckets =
+                affectedBucketsDict : IdDict BucketIdTag Bucket
+                affectedBucketsDict =
                     model.buckets
                         |> IdDict.filter (\_ bucket -> bucket.categoryId == categoryId)
+
+                affectedBucketIds : IdSet BucketIdTag
+                affectedBucketIds =
+                    affectedBucketsDict
                         |> IdDict.keys
                         |> IdSet.fromList
+
+                lostValue : Money
+                lostValue =
+                    affectedBucketsDict
+                        |> IdDict.values
+                        |> List.map .value
+                        |> List.foldl Money.add Money.zero
             in
             ( { model
                 | categories = IdDict.remove categoryId model.categories
-                , buckets = IdDict.filter (\bucketId _ -> not (IdSet.member bucketId affectedBuckets)) model.buckets
+                , buckets = IdDict.filter (\bucketId _ -> not (IdSet.member bucketId affectedBucketIds)) model.buckets
                 , categoriesOrder = List.filter ((/=) categoryId) model.categoriesOrder
                 , bucketsOrder = IdDict.remove categoryId model.bucketsOrder
+                , toBeBudgeted = Money.add lostValue model.toBeBudgeted
               }
             , Cmd.none
             )
@@ -329,11 +339,10 @@ update msg model =
                     ( model, Cmd.none )
 
                 Just bucket ->
-                    -- TODO modal with moving the money somewhere?
-                    -- TODO or at least confirm modal
                     ( { model
                         | buckets = IdDict.filter (\id _ -> id /= bucketId) model.buckets
                         , bucketsOrder = IdDict.update bucket.categoryId (Maybe.map (List.filter ((/=) bucketId))) model.bucketsOrder
+                        , toBeBudgeted = Money.add bucket.value model.toBeBudgeted
                       }
                     , Cmd.none
                     )
