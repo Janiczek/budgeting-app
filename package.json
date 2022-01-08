@@ -2,7 +2,7 @@
   "license": "BSD-3-Clause",
   "scripts": {
     "start": "snowpack dev --config snowpack.config.mjs",
-    "build": "rm -rf ./index.* && npx parcel build --no-optimize src/index.html && mv dist/* ./ && perl -i -pe's/\/index/index/g' index.html"
+    "build": "rm -rf ./index.* && npx parcel build --no-optimize src/index.html && mv dist/* ./ && replace '/index' 'index' ./index.html"
   },
   "devDependencies": {
     "@parcel/transformer-elm": "^2.1.1",
@@ -10,6 +10,7 @@
     "autoprefixer": "^10.4.2",
     "elm": "^0.19.1-5",
     "postcss": "^8.1.0",
+    "replace": "^1.2.1",
     "snowpack": "^3.8.8",
     "snowpack-plugin-elm": "^0.5.1",
     "tailwindcss": "^3.0.12"
