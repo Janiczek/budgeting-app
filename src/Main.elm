@@ -44,6 +44,8 @@ type alias Model =
     --
     , newCategoryInput : String
     , newBucketInputs : IdDict CategoryIdTag String
+    , categoryRenameInputs : IdDict CategoryIdTag String
+    , bucketRenameInputs : IdDict BucketIdTag String
 
     --
     , bucketMoneyOps : IdDict BucketIdTag MoneyOp
@@ -71,6 +73,12 @@ type Msg
     | ImportButtonClicked
     | ImportFileSelected File
     | ImportJson String
+    | SetRenameBucketInput BucketId String
+    | CancelRenamingBucket BucketId
+    | FinishRenamingBucket BucketId
+    | SetRenameCategoryInput CategoryId String
+    | CancelRenamingCategory CategoryId
+    | FinishRenamingCategory CategoryId
 
 
 type MoneyOp
@@ -149,6 +157,8 @@ initModel idSeed savedModel =
     --
     , newCategoryInput = ""
     , newBucketInputs = IdDict.empty
+    , categoryRenameInputs = IdDict.empty
+    , bucketRenameInputs = IdDict.empty
 
     --
     , bucketMoneyOps = IdDict.empty
@@ -515,6 +525,64 @@ update msg model =
                     )
                 |> Maybe.withDefault ( model, Cmd.none )
 
+        SetRenameBucketInput bucketId bucketName ->
+            ( { model
+                | bucketRenameInputs =
+                    model.bucketRenameInputs
+                        |> IdDict.insert bucketId bucketName
+              }
+            , Cmd.none
+            )
+
+        CancelRenamingBucket bucketId ->
+            ( { model | bucketRenameInputs = IdDict.remove bucketId model.bucketRenameInputs }
+            , Cmd.none
+            )
+
+        FinishRenamingBucket bucketId ->
+            ( IdDict.get bucketId model.bucketRenameInputs
+                |> Maybe.map
+                    (\newName ->
+                        { model
+                            | bucketRenameInputs = IdDict.remove bucketId model.bucketRenameInputs
+                            , buckets =
+                                model.buckets
+                                    |> IdDict.update bucketId (Maybe.map (\bucket -> { bucket | name = newName }))
+                        }
+                    )
+                |> Maybe.withDefault model
+            , Cmd.none
+            )
+
+        SetRenameCategoryInput categoryId categoryName ->
+            ( { model
+                | categoryRenameInputs =
+                    model.categoryRenameInputs
+                        |> IdDict.insert categoryId categoryName
+              }
+            , Cmd.none
+            )
+
+        CancelRenamingCategory categoryId ->
+            ( { model | categoryRenameInputs = IdDict.remove categoryId model.categoryRenameInputs }
+            , Cmd.none
+            )
+
+        FinishRenamingCategory categoryId ->
+            ( IdDict.get categoryId model.categoryRenameInputs
+                |> Maybe.map
+                    (\newName ->
+                        { model
+                            | categoryRenameInputs = IdDict.remove categoryId model.categoryRenameInputs
+                            , categories =
+                                model.categories
+                                    |> IdDict.update categoryId (Maybe.map (\category -> { category | name = newName }))
+                        }
+                    )
+                |> Maybe.withDefault model
+            , Cmd.none
+            )
+
 
 updateMoney : BucketType -> (Money -> Money) -> Model -> Model
 updateMoney bucketType moneyFn model =
@@ -665,9 +733,39 @@ categoryView model categoriesAndBuckets ( category, buckets ) =
         [ Attrs.class "p-2 border bg-slate-50 flex flex-col gap-2" ]
         [ Html.div
             [ Attrs.class "flex justify-between" ]
-            [ Html.div
-                [ Attrs.class "font-semibold" ]
-                [ Html.text category.name ]
+            [ case IdDict.get category.id model.categoryRenameInputs of
+                Nothing ->
+                    Html.div
+                        [ Attrs.class "flex gap-2" ]
+                        [ Html.div
+                            [ Attrs.class "font-semibold" ]
+                            [ Html.text category.name ]
+                        , button
+                            Inline
+                            [ Events.onClick <| SetRenameCategoryInput category.id category.name ]
+                            [ Icons.pencil ]
+                        ]
+
+                Just newName ->
+                    Html.div
+                        [ Attrs.class "flex gap-1" ]
+                        [ input
+                            [ Events.onInput <| SetRenameCategoryInput category.id
+                            , Events.onEnter <| FinishRenamingCategory category.id
+                            , Attrs.placeholder "New category name"
+                            ]
+                            newName
+                        , button
+                            Sky
+                            [ Events.onClick <| CancelRenamingCategory category.id ]
+                            [ Icons.xmark ]
+                        , button
+                            Sky
+                            [ Events.onClick <| FinishRenamingCategory category.id
+                            , Attrs.disabled <| String.isEmpty newName
+                            ]
+                            [ Icons.check ]
+                        ]
             , Html.div
                 [ Attrs.class "flex gap-1" ]
                 [ button
@@ -778,9 +876,39 @@ bucketView model categoriesAndBuckets bucket =
     in
     Html.div
         [ Attrs.class "px-2 py-1 border bg-slate-100 flex justify-between hover:bg-sky-100" ]
-        [ Html.div
-            [ Attrs.class "font-semibold" ]
-            [ Html.text bucket.name ]
+        [ case IdDict.get bucket.id model.bucketRenameInputs of
+            Nothing ->
+                Html.div
+                    [ Attrs.class "flex gap-2" ]
+                    [ Html.div
+                        [ Attrs.class "font-semibold" ]
+                        [ Html.text bucket.name ]
+                    , button
+                        Inline
+                        [ Events.onClick <| SetRenameBucketInput bucket.id bucket.name ]
+                        [ Icons.pencil ]
+                    ]
+
+            Just newName ->
+                Html.div
+                    [ Attrs.class "flex gap-1" ]
+                    [ input
+                        [ Events.onInput <| SetRenameBucketInput bucket.id
+                        , Events.onEnter <| FinishRenamingBucket bucket.id
+                        , Attrs.placeholder "New bucket name"
+                        ]
+                        newName
+                    , button
+                        Sky
+                        [ Events.onClick <| CancelRenamingBucket bucket.id ]
+                        [ Icons.xmark ]
+                    , button
+                        Sky
+                        [ Events.onClick <| FinishRenamingBucket bucket.id
+                        , Attrs.disabled <| String.isEmpty newName
+                        ]
+                        [ Icons.check ]
+                    ]
         , Html.div
             [ Attrs.class "flex gap-2" ]
             [ valuePill
@@ -1009,26 +1137,30 @@ isValidNumber valueString =
             False
 
 
-type ButtonColor
+type ButtonStyle
     = Sky
     | Orange
+    | Inline
 
 
-buttonColor : ButtonColor -> Attribute msg
-buttonColor color =
-    case color of
+buttonStyle : ButtonStyle -> Attribute msg
+buttonStyle style =
+    case style of
         Sky ->
-            Attrs.class "bg-sky-200 border-sky-400 text-sky-700 hover:bg-sky-300 hover:border-sky-500"
+            Attrs.class "rounded border bg-sky-200 border-sky-400 text-sky-700 hover:bg-sky-300 hover:border-sky-500"
 
         Orange ->
-            Attrs.class "bg-orange-200 border-orange-400 text-orange-700 hover:bg-orange-300 hover:border-orange-500"
+            Attrs.class "rounded border bg-orange-200 border-orange-400 text-orange-700 hover:bg-orange-300 hover:border-orange-500"
+
+        Inline ->
+            Attrs.class "text-gray-400 hover:text-gray-600"
 
 
-button : ButtonColor -> List (Attribute msg) -> List (Html msg) -> Html msg
-button color attrs contents =
+button : ButtonStyle -> List (Attribute msg) -> List (Html msg) -> Html msg
+button style attrs contents =
     Html.button
-        (Attrs.class "border px-2 rounded border flex flex-row gap-1 items-center disabled:cursor-not-allowed disabled:bg-gray-200 disabled:border-gray-400 disabled:text-gray-400 disabled:hover:bg-gray-300"
-            :: buttonColor color
+        (Attrs.class "px-2 flex flex-row gap-1 items-center disabled:cursor-not-allowed disabled:bg-gray-200 disabled:border-gray-400 disabled:text-gray-400 disabled:hover:bg-gray-300"
+            :: buttonStyle style
             :: attrs
         )
         contents
