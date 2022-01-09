@@ -7,7 +7,9 @@ module Data.Money exposing
     , fromString
     , isNegative
     , subtract
+    , toCents
     , toString
+    , toStringWithCurrency
     , zero
     )
 
@@ -93,6 +95,11 @@ toString money =
         ++ String.pad 2 '0' (String.fromInt cents)
 
 
+toStringWithCurrency : Money -> String
+toStringWithCurrency money =
+    toString money ++ " Kč"
+
+
 add : Money -> Money -> Money
 add (Money int1) (Money int2) =
     Money <| int1 + int2
@@ -134,3 +141,8 @@ isNegative money =
         |> toParts
         |> Tuple.first
         |> (\n -> n < 0)
+
+
+toCents : Money -> Int
+toCents (Money int) =
+    int

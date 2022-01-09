@@ -1,3 +1,29 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+
+.pulse-shadow {
+  position: relative;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+}
+.pulse-shadow::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.3);
+  opacity: 1;
+  animation: pulse-shadow 2s ease-in-out infinite;
+}
+
+@keyframes pulse-shadow {
+  0%, 100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+}

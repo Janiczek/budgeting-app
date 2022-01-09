@@ -3,6 +3,7 @@ module Data.IdDict exposing
     , decoder
     , empty
     , encode
+    , equal
     , filter
     , get
     , insert
@@ -60,6 +61,11 @@ filter pred (IdDict dict) =
 update : Id tag -> (Maybe value -> Maybe value) -> IdDict tag value -> IdDict tag value
 update id fn (IdDict dict) =
     IdDict <| Dict.Any.update id fn dict
+
+
+equal : IdDict tag value -> IdDict tag value -> Bool
+equal (IdDict dict1) (IdDict dict2) =
+    Dict.Any.equal dict1 dict2
 
 
 encode : (value -> Encode.Value) -> IdDict tag value -> Encode.Value
