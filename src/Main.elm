@@ -1071,40 +1071,67 @@ bucketView model categoriesAndBuckets bucket =
 goalView : Money -> Money -> Html msg
 goalView value goal =
     let
+        centsValue : Int
         centsValue =
             Money.toCents value
 
+        centsGoal : Int
         centsGoal =
             Money.toCents goal
 
-        times =
+        percentage : Float
+        percentage =
             (toFloat centsValue / toFloat centsGoal)
                 |> (*) 100
                 |> floor
                 |> toFloat
-                |> (\x -> x / 100)
                 |> max 0
 
+        times : Float
+        times =
+            percentage / 100
+
+        style : Attribute msg
         style =
             if centsValue <= 0 then
                 Attrs.class "bg-orange-200 border-orange-400 text-orange-600 hover:bg-orange-300 hover:border-orange-500"
 
+            else if centsValue < centsGoal then
+                Attrs.class "bg-yellow-200 border-yellow-400 text-yellow-700 hover:bg-yellow-300 hover:border-yellow-500"
+
             else
-                case compare centsValue centsGoal of
-                    LT ->
-                        Attrs.class "bg-yellow-200 border-yellow-400 text-yellow-600 hover:bg-yellow-300 hover:border-yellow-500"
-
-                    EQ ->
-                        Attrs.class "bg-lime-200 border-lime-400 text-lime-600 hover:bg-lime-300 hover:border-lime-500"
-
-                    GT ->
-                        Attrs.class "pulse-shadow bg-violet-200 border-violet-400 text-violet-600 hover:bg-violet-300 hover:border-violet-500"
+                Attrs.class "bg-lime-200 border-lime-400 text-lime-700 hover:bg-lime-300 hover:border-lime-500"
     in
     Html.div
-        [ Attrs.class "rounded px-2 border w-20 text-center"
+        [ Attrs.class "relative rounded px-2 border w-20 text-center overflow-hidden"
         , style
         ]
-        [ Html.text <| String.fromFloat times ++ "x" ]
+        [ if percentage > 0 && centsValue < centsGoal then
+            Html.div
+                [ Attrs.class "absolute rounded border border-yellow-500 inset-y-[-1px] left-[-1px] bg-yellow-300"
+                , Attrs.style "width" <| String.fromFloat percentage ++ "%"
+                ]
+                []
+
+          else if centsValue > centsGoal && modBy centsGoal centsValue > 0 then
+            Html.div
+                [ Attrs.class "absolute rounded border border-lime-500 inset-y-[-1px] left-[-1px] bg-lime-300"
+                , Attrs.style "width" <| String.fromFloat (toFloat (modBy centsGoal centsValue) / toFloat centsGoal * 100) ++ "%"
+                ]
+                []
+
+          else
+            Html.text ""
+        , Html.div
+            [ Attrs.class "absolute z-10 inset-0" ]
+            [ Html.text <|
+                if centsValue < centsGoal then
+                    String.fromInt (floor percentage) ++ "%"
+
+                else
+                    String.fromFloat times ++ "x"
+            ]
+        ]
 
 
 toBeBudgetedName : String
