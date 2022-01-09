@@ -8,6 +8,9 @@ import Data.Id
 import Data.IdDict as IdDict exposing (IdDict)
 import Data.IdSet as IdSet exposing (IdSet)
 import Data.Money as Money exposing (Money)
+import File exposing (File)
+import File.Download
+import File.Select
 import Html exposing (Attribute, Html)
 import Html.Attributes as Attrs
 import Html.Attributes.Extra as Attrs
@@ -64,6 +67,10 @@ type Msg
     | FinishMoneyOp BucketType
     | CancelMoneyOp BucketType
     | FocusAttempted
+    | Export
+    | ImportButtonClicked
+    | ImportFileSelected File
+    | ImportJson String
 
 
 type MoneyOp
@@ -235,6 +242,32 @@ update msg model =
     case msg of
         FocusAttempted ->
             ( model, Cmd.none )
+
+        Export ->
+            ( model
+            , File.Download.string
+                "budgeting.json"
+                "application/json"
+                (encodeSavedModel <| getSavedModel model)
+            )
+
+        ImportButtonClicked ->
+            ( model
+            , File.Select.file [ "application/json" ] ImportFileSelected
+            )
+
+        ImportFileSelected file ->
+            ( model
+            , Task.perform ImportJson (File.toString file)
+            )
+
+        ImportJson jsonString ->
+            ( jsonString
+                |> Decode.decodeString savedModelDecoder
+                |> Result.map (initModel model.idSeed)
+                |> Result.withDefault model
+            , Cmd.none
+            )
 
         SetNewCategoryInput input_ ->
             ( { model | newCategoryInput = input_ }
@@ -600,6 +633,17 @@ view model =
                 Sky
                 [ Events.onClick addCategory ]
                 [ Html.text "Add category" ]
+            ]
+        , Html.div
+            [ Attrs.class "flex gap-2" ]
+            [ button
+                Orange
+                [ Events.onClick ImportButtonClicked ]
+                [ Html.text "Import" ]
+            , button
+                Orange
+                [ Events.onClick Export ]
+                [ Html.text "Export" ]
             ]
         ]
 
