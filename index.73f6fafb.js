@@ -3639,6 +3639,25 @@ type alias Process =
         var _int = _v0.a;
         return $elm$json$Json$Encode$int(_int);
     };
+    var $elm$core$Basics$composeR = F3(function(f, g, x) {
+        return g(f(x));
+    });
+    var $elm$core$Maybe$map = F2(function(f, maybe) {
+        if (maybe.$ === 'Just') {
+            var value = maybe.a;
+            return $elm$core$Maybe$Just(f(value));
+        } else return $elm$core$Maybe$Nothing;
+    });
+    var $elm$json$Json$Encode$null = _Json_encodeNull;
+    var $elm$core$Maybe$withDefault = F2(function(_default, maybe) {
+        if (maybe.$ === 'Just') {
+            var value = maybe.a;
+            return value;
+        } else return _default;
+    });
+    var $elm_community$json_extra$Json$Encode$Extra$maybe = function(encoder) {
+        return A2($elm$core$Basics$composeR, $elm$core$Maybe$map(encoder), $elm$core$Maybe$withDefault($elm$json$Json$Encode$null));
+    };
     var $elm$json$Json$Encode$object = function(pairs) {
         return _Json_wrap(A3($elm$core$List$foldl, F2(function(_v0, obj) {
             var k = _v0.a;
@@ -3651,7 +3670,8 @@ type alias Process =
             _Utils_Tuple2('id', $author$project$Data$Id$encode(bucket.id)),
             _Utils_Tuple2('name', $elm$json$Json$Encode$string(bucket.name)),
             _Utils_Tuple2('categoryId', $author$project$Data$Id$encode(bucket.categoryId)),
-            _Utils_Tuple2('value', $author$project$Data$Money$encode(bucket.value))
+            _Utils_Tuple2('value', $author$project$Data$Money$encode(bucket.value)),
+            _Utils_Tuple2('goal', A2($elm_community$json_extra$Json$Encode$Extra$maybe, $author$project$Data$Money$encode, bucket.goal))
         ]));
     };
     var $author$project$Data$Category$encode = function(category) {
@@ -3758,6 +3778,7 @@ type alias Process =
     var $author$project$Data$IdDict$empty = $author$project$Data$IdDict$IdDict($turboMaCk$any_dict$Dict$Any$empty($author$project$Data$Id$unwrap));
     var $author$project$Main$initModel = F2(function(idSeed, savedModel) {
         return {
+            bucketGoalInputs: $author$project$Data$IdDict$empty,
             bucketMoneyOps: $author$project$Data$IdDict$empty,
             bucketRenameInputs: $author$project$Data$IdDict$empty,
             buckets: savedModel.buckets,
@@ -3816,9 +3837,10 @@ type alias Process =
             toBeBudgeted: toBeBudgeted
         };
     });
-    var $author$project$Data$Bucket$Bucket = F4(function(id, name, categoryId, value) {
+    var $author$project$Data$Bucket$Bucket = F5(function(id, name, categoryId, value, goal) {
         return {
             categoryId: categoryId,
+            goal: goal,
             id: id,
             name: name,
             value: value
@@ -3834,8 +3856,16 @@ type alias Process =
     var $author$project$Data$Id$decoder = A2($elm$json$Json$Decode$map, $author$project$Data$Id$Id, $elm$json$Json$Decode$string);
     var $elm$json$Json$Decode$int = _Json_decodeInt;
     var $author$project$Data$Money$decoder = A2($elm$json$Json$Decode$map, $author$project$Data$Money$Money, $elm$json$Json$Decode$int);
-    var $elm$json$Json$Decode$map4 = _Json_map4;
-    var $author$project$Data$Bucket$decoder = A5($elm$json$Json$Decode$map4, $author$project$Data$Bucket$Bucket, A2($elm$json$Json$Decode$field, 'id', $author$project$Data$Id$decoder), A2($elm$json$Json$Decode$field, 'name', $elm$json$Json$Decode$string), A2($elm$json$Json$Decode$field, 'categoryId', $author$project$Data$Id$decoder), A2($elm$json$Json$Decode$field, 'value', $author$project$Data$Money$decoder));
+    var $elm$json$Json$Decode$map5 = _Json_map5;
+    var $elm$json$Json$Decode$null = _Json_decodeNull;
+    var $elm$json$Json$Decode$oneOf = _Json_oneOf;
+    var $elm$json$Json$Decode$nullable = function(decoder) {
+        return $elm$json$Json$Decode$oneOf(_List_fromArray([
+            $elm$json$Json$Decode$null($elm$core$Maybe$Nothing),
+            A2($elm$json$Json$Decode$map, $elm$core$Maybe$Just, decoder)
+        ]));
+    };
+    var $author$project$Data$Bucket$decoder = A6($elm$json$Json$Decode$map5, $author$project$Data$Bucket$Bucket, A2($elm$json$Json$Decode$field, 'id', $author$project$Data$Id$decoder), A2($elm$json$Json$Decode$field, 'name', $elm$json$Json$Decode$string), A2($elm$json$Json$Decode$field, 'categoryId', $author$project$Data$Id$decoder), A2($elm$json$Json$Decode$field, 'value', $author$project$Data$Money$decoder), A2($elm$json$Json$Decode$field, 'goal', $elm$json$Json$Decode$nullable($author$project$Data$Money$decoder)));
     var $author$project$Data$Category$Category = F2(function(id, name) {
         return {
             id: id,
@@ -3956,7 +3986,6 @@ type alias Process =
         }), $author$project$Data$Id$unwrap, valueDecoder));
     };
     var $elm$json$Json$Decode$list = _Json_decodeList;
-    var $elm$json$Json$Decode$map5 = _Json_map5;
     var $author$project$Main$savedModelDecoder = A6($elm$json$Json$Decode$map5, $author$project$Main$SavedModel, A2($elm$json$Json$Decode$field, 'categories', $author$project$Data$IdDict$decoder($author$project$Data$Category$decoder)), A2($elm$json$Json$Decode$field, 'buckets', $author$project$Data$IdDict$decoder($author$project$Data$Bucket$decoder)), A2($elm$json$Json$Decode$field, 'toBeBudgeted', $author$project$Data$Money$decoder), A2($elm$json$Json$Decode$field, 'categoriesOrder', $elm$json$Json$Decode$list($author$project$Data$Id$decoder)), A2($elm$json$Json$Decode$field, 'bucketsOrder', $author$project$Data$IdDict$decoder($elm$json$Json$Decode$list($author$project$Data$Id$decoder))));
     var $elm$core$Result$toMaybe = function(result) {
         if (result.$ === 'Ok') {
@@ -3964,12 +3993,6 @@ type alias Process =
             return $elm$core$Maybe$Just(v);
         } else return $elm$core$Maybe$Nothing;
     };
-    var $elm$core$Maybe$withDefault = F2(function(_default, maybe) {
-        if (maybe.$ === 'Just') {
-            var value = maybe.a;
-            return value;
-        } else return _default;
-    });
     var $author$project$Main$init = function(flags) {
         var savedModel = A2($elm$core$Maybe$withDefault, $author$project$Main$initSavedModel, A2($elm$core$Maybe$andThen, function(savedModelString) {
             return $elm$core$Result$toMaybe(A2($elm$json$Json$Decode$decodeString, $author$project$Main$savedModelDecoder, savedModelString));
@@ -3979,13 +4002,24 @@ type alias Process =
             $author$project$Main$saveToLocalStorage($author$project$Main$encodeSavedModel(savedModel))
         ])));
     };
-    var $elm$json$Json$Decode$null = _Json_decodeNull;
-    var $elm$json$Json$Decode$oneOf = _Json_oneOf;
     var $elm$core$Platform$Sub$batch = _Platform_batch;
     var $elm$core$Platform$Sub$none = $elm$core$Platform$Sub$batch(_List_Nil);
     var $author$project$Main$subscriptions = function(_v0) {
         return $elm$core$Platform$Sub$none;
     };
+    var $turboMaCk$any_dict$Dict$Any$equal = F2(function(_v0, _v1) {
+        var r1 = _v0.a;
+        var r2 = _v1.a;
+        return _Utils_eq(r1.dict, r2.dict);
+    });
+    var $author$project$Data$IdDict$equal = F2(function(_v0, _v1) {
+        var dict1 = _v0.a;
+        var dict2 = _v1.a;
+        return A2($turboMaCk$any_dict$Dict$Any$equal, dict1, dict2);
+    });
+    var $author$project$Main$equalSavedModel = F2(function(m1, m2) {
+        return A2($author$project$Data$IdDict$equal, m1.categories, m2.categories) && A2($author$project$Data$IdDict$equal, m1.buckets, m2.buckets) && _Utils_eq(m1.toBeBudgeted, m2.toBeBudgeted) && _Utils_eq(m1.categoriesOrder, m2.categoriesOrder) && A2($author$project$Data$IdDict$equal, m1.bucketsOrder, m2.bucketsOrder);
+    });
     var $author$project$Main$getSavedModel = function(model) {
         return {
             buckets: model.buckets,
@@ -3995,6 +4029,7 @@ type alias Process =
             toBeBudgeted: model.toBeBudgeted
         };
     };
+    var $elm$core$Platform$Cmd$none = $elm$core$Platform$Cmd$batch(_List_Nil);
     var $author$project$Main$AddBucketInput = function(a) {
         return {
             $: 'AddBucketInput',
@@ -4293,9 +4328,6 @@ type alias Process =
             });
         }
     });
-    var $elm$core$Basics$composeR = F3(function(f, g, x) {
-        return g(f(x));
-    });
     var $elm$time$Time$Posix = function(a) {
         return {
             $: 'Posix',
@@ -4378,12 +4410,6 @@ type alias Process =
     };
     var $author$project$Data$Money$fromParts = F2(function(whole, cents) {
         return $author$project$Data$Money$Money(whole * 100 + cents);
-    });
-    var $elm$core$Maybe$map = F2(function(f, maybe) {
-        if (maybe.$ === 'Just') {
-            var value = maybe.a;
-            return $elm$core$Maybe$Just(f(value));
-        } else return $elm$core$Maybe$Nothing;
     });
     var $elm$core$Maybe$map2 = F3(function(func, ma, mb) {
         if (ma.$ === 'Nothing') return $elm$core$Maybe$Nothing;
@@ -4684,7 +4710,6 @@ type alias Process =
         return A2($turboMaCk$any_set$Set$Any$member, id, set);
     });
     var $elm$core$Basics$neq = _Utils_notEqual;
-    var $elm$core$Platform$Cmd$none = $elm$core$Platform$Cmd$batch(_List_Nil);
     var $elm$core$Basics$not = _Basics_not;
     var $elm$random$Random$step = F2(function(_v0, seed) {
         var generator = _v0.a;
@@ -4802,6 +4827,7 @@ type alias Process =
                     return _Utils_Tuple2(_Utils_update(model, {
                         buckets: A3($author$project$Data$IdDict$insert, newBucketId, {
                             categoryId: categoryId,
+                            goal: $elm$core$Maybe$Nothing,
                             id: newBucketId,
                             name: bucketName,
                             value: $author$project$Data$Money$zero
@@ -5004,7 +5030,7 @@ type alias Process =
                 return _Utils_Tuple2(_Utils_update(model, {
                     categoryRenameInputs: A2($author$project$Data$IdDict$remove, categoryId, model.categoryRenameInputs)
                 }), $elm$core$Platform$Cmd$none);
-            default:
+            case 'FinishRenamingCategory':
                 var categoryId = msg.a;
                 return _Utils_Tuple2(A2($elm$core$Maybe$withDefault, model, A2($elm$core$Maybe$map, function(newName) {
                     return _Utils_update(model, {
@@ -5016,13 +5042,44 @@ type alias Process =
                         categoryRenameInputs: A2($author$project$Data$IdDict$remove, categoryId, model.categoryRenameInputs)
                     });
                 }, A2($author$project$Data$IdDict$get, categoryId, model.categoryRenameInputs))), $elm$core$Platform$Cmd$none);
+            case 'SetBucketGoalInput':
+                var bucketId1 = msg.a;
+                var goalString1 = msg.b;
+                return _Utils_Tuple2(_Utils_update(model, {
+                    bucketGoalInputs: A3($author$project$Data$IdDict$insert, bucketId1, goalString1, model.bucketGoalInputs)
+                }), $elm$core$Platform$Cmd$none);
+            case 'CancelBucketGoal':
+                var bucketId1 = msg.a;
+                return _Utils_Tuple2(_Utils_update(model, {
+                    bucketGoalInputs: A2($author$project$Data$IdDict$remove, bucketId1, model.bucketGoalInputs)
+                }), $elm$core$Platform$Cmd$none);
+            default:
+                var bucketId1 = msg.a;
+                return _Utils_Tuple2(A2($elm$core$Maybe$withDefault, model, A2($elm$core$Maybe$map, function(goalString) {
+                    return _Utils_update(model, {
+                        bucketGoalInputs: A2($author$project$Data$IdDict$remove, bucketId1, model.bucketGoalInputs),
+                        buckets: $elm$core$String$isEmpty(goalString) ? A3($author$project$Data$IdDict$update, bucketId1, $elm$core$Maybe$map(function(bucket) {
+                            return _Utils_update(bucket, {
+                                goal: $elm$core$Maybe$Nothing
+                            });
+                        }), model.buckets) : A2($elm$core$Maybe$withDefault, model.buckets, A2($elm$core$Maybe$map, function(newGoal) {
+                            return A3($author$project$Data$IdDict$update, bucketId1, $elm$core$Maybe$map(function(bucket) {
+                                return _Utils_update(bucket, {
+                                    goal: $elm$core$Maybe$Just(newGoal)
+                                });
+                            }), model.buckets);
+                        }, $author$project$Data$Money$fromString(goalString)))
+                    });
+                }, A2($author$project$Data$IdDict$get, bucketId1, model.bucketGoalInputs))), $elm$core$Platform$Cmd$none);
         }
     });
     var $author$project$Main$update_ = F2(function(msg, model) {
+        var oldSavedModel = $author$project$Main$getSavedModel(model);
         var _v0 = A2($author$project$Main$update, msg, model);
         var newModel = _v0.a;
         var cmd = _v0.b;
-        var saveCmd = $author$project$Main$saveToLocalStorage($author$project$Main$encodeSavedModel($author$project$Main$getSavedModel(newModel)));
+        var newSavedModel = $author$project$Main$getSavedModel(newModel);
+        var saveCmd = A2($author$project$Main$equalSavedModel, oldSavedModel, newSavedModel) ? $elm$core$Platform$Cmd$none : $author$project$Main$saveToLocalStorage($author$project$Main$encodeSavedModel(newSavedModel));
         return _Utils_Tuple2(newModel, $elm$core$Platform$Cmd$batch(_List_fromArray([
             cmd,
             saveCmd
@@ -5096,15 +5153,15 @@ type alias Process =
     var $author$project$Main$buttonStyle = function(style) {
         switch(style.$){
             case 'Sky':
-                return $elm$html$Html$Attributes$class('rounded border bg-sky-200 border-sky-400 text-sky-700 hover:bg-sky-300 hover:border-sky-500');
+                return $elm$html$Html$Attributes$class('px-2 rounded border bg-sky-200 border-sky-400 text-sky-700 hover:bg-sky-300 hover:border-sky-500');
             case 'Orange':
-                return $elm$html$Html$Attributes$class('rounded border bg-orange-200 border-orange-400 text-orange-700 hover:bg-orange-300 hover:border-orange-500');
+                return $elm$html$Html$Attributes$class('px-2 rounded border bg-orange-200 border-orange-400 text-orange-700 hover:bg-orange-300 hover:border-orange-500');
             default:
-                return $elm$html$Html$Attributes$class('text-gray-400 hover:text-gray-600');
+                return $elm$html$Html$Attributes$class('px-1 text-gray-400 hover:text-gray-600');
         }
     };
     var $author$project$Main$button = F3(function(style, attrs, contents) {
-        return A2($elm$html$Html$button, A2($elm$core$List$cons, $elm$html$Html$Attributes$class('px-2 flex flex-row gap-1 items-center disabled:cursor-not-allowed disabled:bg-gray-200 disabled:border-gray-400 disabled:text-gray-400 disabled:hover:bg-gray-300'), A2($elm$core$List$cons, $author$project$Main$buttonStyle(style), attrs)), contents);
+        return A2($elm$html$Html$button, A2($elm$core$List$cons, $elm$html$Html$Attributes$class('flex flex-row gap-1 items-center disabled:cursor-not-allowed disabled:bg-gray-200 disabled:border-gray-400 disabled:text-gray-400 disabled:hover:bg-gray-300'), A2($elm$core$List$cons, $author$project$Main$buttonStyle(style), attrs)), contents);
     });
     var $author$project$Main$AddBucket = F2(function(a, b) {
         return {
@@ -5148,9 +5205,21 @@ type alias Process =
             b: b
         };
     });
+    var $author$project$Main$CancelBucketGoal = function(a) {
+        return {
+            $: 'CancelBucketGoal',
+            a: a
+        };
+    };
     var $author$project$Main$CancelRenamingBucket = function(a) {
         return {
             $: 'CancelRenamingBucket',
+            a: a
+        };
+    };
+    var $author$project$Main$FinishBucketGoal = function(a) {
+        return {
+            $: 'FinishBucketGoal',
             a: a
         };
     };
@@ -5172,6 +5241,13 @@ type alias Process =
             a: a
         };
     };
+    var $author$project$Main$SetBucketGoalInput = F2(function(a, b) {
+        return {
+            $: 'SetBucketGoalInput',
+            a: a,
+            b: b
+        };
+    });
     var $author$project$Main$SetRenameBucketInput = F2(function(a, b) {
         return {
             $: 'SetRenameBucketInput',
@@ -5217,6 +5293,7 @@ type alias Process =
     });
     var $elm$html$Html$Attributes$disabled = $elm$html$Html$Attributes$boolProperty('disabled');
     var $elm$html$Html$div = _VirtualDom_node('div');
+    var $author$project$Icons$flagCheckered = A2($author$project$Icons$fontAwesomeIcon, '0 0 576 512', 'M509.5 .0234c-6.145 0-12.53 1.344-18.64 4.227c-44.11 20.86-76.81 27.94-104.1 27.94c-57.89 0-91.53-31.86-158.2-31.87C195 .3203 153.3 8.324 96 32.38V32c0-17.75-14.25-32-32-32S32 14.25 32 32L31.96 496c0 8.75 7.25 16 16 16H80C88.75 512 96 504.8 96 496V384c51.74-23.86 92.71-31.82 128.3-31.82c71.09 0 120.6 31.78 191.7 31.78c30.81 0 65.67-5.969 108.1-23.09C536.3 355.9 544 344.4 544 332.1V30.74C544 12.01 527.8 .0234 509.5 .0234zM480 141.8c-31.99 14.04-57.81 20.59-80 22.49v80.21c25.44-1.477 51.59-6.953 80-17.34V308.9c-22.83 7.441-43.93 11.08-64.03 11.08c-5.447 0-10.71-.4258-15.97-.8906V244.5c-4.436 .2578-8.893 .6523-13.29 .6523c-25.82 0-47.35-4.547-66.71-10.08v66.91c-23.81-6.055-50.17-11.41-80-12.98V213.1C236.2 213.7 232.5 213.3 228.5 213.3C208.8 213.3 185.1 217.7 160 225.1v69.1C139.2 299.4 117.9 305.8 96 314.4V250.7l24.77-10.39C134.8 234.5 147.6 229.9 160 225.1V143.4C140.9 148.5 120.1 155.2 96 165.3V101.8l24.77-10.39C134.8 85.52 147.6 80.97 160 77.02v66.41c26.39-6.953 49.09-10.17 68.48-10.16c4.072 0 7.676 .4453 11.52 .668V65.03C258.6 66.6 274.4 71.55 293.2 77.83C301.7 80.63 310.7 83.45 320 86.12v66.07c20.79 6.84 41.45 12.96 66.71 12.96c4.207 0 8.781-.4766 13.29-.8594V95.54c25.44-1.477 51.59-6.953 80-17.34V141.8zM240 133.9v80.04c18.61 1.57 34.37 6.523 53.23 12.8C301.7 229.6 310.7 232.4 320 235.1V152.2C296.1 144.3 271.6 135.8 240 133.9z');
     var $author$project$Main$toBeBudgetedName = 'To be budgeted';
     var $author$project$Main$getBucketName = F2(function(model, bucketType) {
         if (bucketType.$ === 'ToBeBudgeted') return $author$project$Main$toBeBudgetedName;
@@ -5226,6 +5303,40 @@ type alias Process =
                 return $.name;
             }, A2($author$project$Data$IdDict$get, bucketId, model.buckets)));
         }
+    });
+    var $elm$core$String$fromFloat = _String_fromNumber;
+    var $elm$virtual_dom$VirtualDom$text = _VirtualDom_text;
+    var $elm$html$Html$text = $elm$virtual_dom$VirtualDom$text;
+    var $author$project$Data$Money$toCents = function(_v0) {
+        var _int = _v0.a;
+        return _int;
+    };
+    var $author$project$Main$goalView = F2(function(value, goal) {
+        var centsValue = $author$project$Data$Money$toCents(value);
+        var centsGoal = $author$project$Data$Money$toCents(goal);
+        var style = function() {
+            if (centsValue <= 0) return $elm$html$Html$Attributes$class('bg-orange-200 border-orange-400 text-orange-600 hover:bg-orange-300 hover:border-orange-500');
+            else {
+                var _v0 = A2($elm$core$Basics$compare, centsValue, centsGoal);
+                switch(_v0.$){
+                    case 'LT':
+                        return $elm$html$Html$Attributes$class('bg-yellow-200 border-yellow-400 text-yellow-600 hover:bg-yellow-300 hover:border-yellow-500');
+                    case 'EQ':
+                        return $elm$html$Html$Attributes$class('bg-lime-200 border-lime-400 text-lime-600 hover:bg-lime-300 hover:border-lime-500');
+                    default:
+                        return $elm$html$Html$Attributes$class('pulse-shadow bg-violet-200 border-violet-400 text-violet-600 hover:bg-violet-300 hover:border-violet-500');
+                }
+            }
+        }();
+        var times = A2($elm$core$Basics$max, 0, function(x) {
+            return x / 100;
+        }($elm$core$Basics$floor(100 * (centsValue / centsGoal))));
+        return A2($elm$html$Html$div, _List_fromArray([
+            $elm$html$Html$Attributes$class('rounded px-2 border w-20 text-center'),
+            style
+        ]), _List_fromArray([
+            $elm$html$Html$text($elm$core$String$fromFloat(times) + 'x')
+        ]));
     });
     var $elm$html$Html$input = _VirtualDom_node('input');
     var $elm$html$Html$Attributes$value = $elm$html$Html$Attributes$stringProperty('value');
@@ -5311,8 +5422,6 @@ type alias Process =
     };
     var $elm$html$Html$option = _VirtualDom_node('option');
     var $elm$html$Html$Attributes$selected = $elm$html$Html$Attributes$boolProperty('selected');
-    var $elm$virtual_dom$VirtualDom$text = _VirtualDom_text;
-    var $elm$html$Html$text = $elm$virtual_dom$VirtualDom$text;
     var $author$project$Main$otherBucketOptionView = F2(function(config, otherBucket) {
         return A2($elm$html$Html$option, _List_fromArray([
             $elm$html$Html$Attributes$selected(_Utils_eq(config.selectedOtherBucket, $elm$core$Maybe$Just(otherBucket))),
@@ -5335,7 +5444,6 @@ type alias Process =
     });
     var $elm$html$Html$Attributes$placeholder = $elm$html$Html$Attributes$stringProperty('placeholder');
     var $elm$html$Html$select = _VirtualDom_node('select');
-    var $elm$html$Html$span = _VirtualDom_node('span');
     var $author$project$Icons$xmark = A2($author$project$Icons$fontAwesomeIcon, '0 0 320 512', 'M310.6 361.4c12.5 12.5 12.5 32.75 0 45.25C304.4 412.9 296.2 416 288 416s-16.38-3.125-22.62-9.375L160 301.3L54.63 406.6C48.38 412.9 40.19 416 32 416S15.63 412.9 9.375 406.6c-12.5-12.5-12.5-32.75 0-45.25l105.4-105.4L9.375 150.6c-12.5-12.5-12.5-32.75 0-45.25s32.75-12.5 45.25 0L160 210.8l105.4-105.4c12.5-12.5 32.75-12.5 45.25 0s12.5 32.75 0 45.25l-105.4 105.4L310.6 361.4z');
     var $author$project$Main$moneyInputAndBucketSelectView = F4(function(config, labels, otherBucket, valueString) {
         var otherBucketMsgDecoder = A2($elm$json$Json$Decode$map, config.selectOtherBucket, A2($elm$json$Json$Decode$at, _List_fromArray([
@@ -5345,9 +5453,6 @@ type alias Process =
         return A2($elm$html$Html$div, _List_fromArray([
             $elm$html$Html$Attributes$class('flex gap-1')
         ]), _List_fromArray([
-            A2($elm$html$Html$span, _List_Nil, _List_fromArray([
-                $elm$html$Html$text(labels.label)
-            ])),
             A2($author$project$Main$input, _List_fromArray([
                 $elm$html$Html$Events$onInput(config.setMoneyOpInput),
                 $elm_community$html_extra$Html$Events$Extra$onEnter(config.finishMoneyOp),
@@ -5388,13 +5493,10 @@ type alias Process =
     });
     var $author$project$Icons$plus = A2($author$project$Icons$fontAwesomeIcon, '0 0 448 512', 'M432 256c0 17.69-14.33 32.01-32 32.01H256v144c0 17.69-14.33 31.99-32 31.99s-32-14.3-32-31.99v-144H48c-17.67 0-32-14.32-32-32.01s14.33-31.99 32-31.99H192v-144c0-17.69 14.33-32.01 32-32.01s32 14.32 32 32.01v144h144C417.7 224 432 238.3 432 256z');
     var $author$project$Main$moneyOpView = F2(function(config, moneyOp) {
-        var singleBucketView = F3(function(valueString, label, placeholder) {
+        var singleBucketView = F2(function(valueString, placeholder) {
             return A2($elm$html$Html$div, _List_fromArray([
                 $elm$html$Html$Attributes$class('flex gap-1')
             ]), _List_fromArray([
-                A2($elm$html$Html$span, _List_Nil, _List_fromArray([
-                    $elm$html$Html$text(label)
-                ])),
                 A2($author$project$Main$input, _List_fromArray([
                     $elm$html$Html$Events$onInput(config.setMoneyOpInput),
                     $elm_community$html_extra$Html$Events$Extra$onEnter(config.finishMoneyOp),
@@ -5441,19 +5543,18 @@ type alias Process =
         else switch(moneyOp.a.$){
             case 'SubtractM':
                 var valueString1 = moneyOp.a.a;
-                return A3(singleBucketView, valueString1, 'Subtracting:', 'Amount to subtract');
+                return A2(singleBucketView, valueString1, 'Amount to subtract');
             case 'AddM':
                 var valueString1 = moneyOp.a.a;
-                return A3(singleBucketView, valueString1, 'Adding:', 'Amount to add');
+                return A2(singleBucketView, valueString1, 'Amount to add');
             case 'SetM':
                 var valueString1 = moneyOp.a.a;
-                return A3(singleBucketView, valueString1, 'Setting to:', 'Amount to set');
+                return A2(singleBucketView, valueString1, 'Amount to set');
             case 'MoveToM':
                 var _v1 = moneyOp.a;
                 var targetBucket = _v1.a;
                 var valueString1 = _v1.b;
                 return A4($author$project$Main$moneyInputAndBucketSelectView, config, {
-                    label: 'Moving:',
                     placeholder: 'Amount to move',
                     selectPlaceholder: 'Move where? ▼'
                 }, targetBucket, valueString1);
@@ -5462,13 +5563,14 @@ type alias Process =
                 var sourceBucket = _v2.a;
                 var valueString1 = _v2.b;
                 return A4($author$project$Main$moneyInputAndBucketSelectView, config, {
-                    label: 'Taking:',
                     placeholder: 'Amount to take',
                     selectPlaceholder: 'Take from where? ▼'
                 }, sourceBucket, valueString1);
         }
     });
+    var $elm_community$html_extra$Html$Extra$nothing = $elm$html$Html$text('');
     var $author$project$Icons$pencil = A2($author$project$Icons$fontAwesomeIcon, '0 0 512 512', 'M497.9 74.16l-60.09-60.1c-18.75-18.75-49.19-18.75-67.93 0L313.4 70.61l127.1 128l56.56-56.55C516.7 123.3 516.7 92.91 497.9 74.16zM31.04 352.1c-2.234 2.234-3.756 5.078-4.377 8.176l-26.34 131.7C-1.703 502.1 6.156 512 15.95 512c1.049 0 2.117-.1035 3.199-.3203l131.7-26.34c3.098-.6191 5.941-2.141 8.176-4.373l259.7-259.7l-128-128L31.04 352.1zM131.9 440.2l-75.14 15.03l15.03-75.15L96 355.9V416h60.12L131.9 440.2z');
+    var $elm$html$Html$Attributes$title = $elm$html$Html$Attributes$stringProperty('title');
     var $elm$core$String$pad = F3(function(n, _char, string) {
         var half = (n - $elm$core$String$length(string)) / 2;
         return _Utils_ap(A2($elm$core$String$repeat, $elm$core$Basics$ceiling(half), $elm$core$String$fromChar(_char)), _Utils_ap(string, A2($elm$core$String$repeat, $elm$core$Basics$floor(half), $elm$core$String$fromChar(_char))));
@@ -5479,11 +5581,13 @@ type alias Process =
         var cents = _v0.b;
         return $elm$core$String$fromInt(whole) + ('.' + A3($elm$core$String$pad, 2, _Utils_chr('0'), $elm$core$String$fromInt(cents)));
     };
+    var $author$project$Data$Money$toStringWithCurrency = function(money) {
+        return $author$project$Data$Money$toString(money) + ' Kč';
+    };
     var $elm$html$Html$Attributes$classList = function(classes) {
         return $elm$html$Html$Attributes$class(A2($elm$core$String$join, ' ', A2($elm$core$List$map, $elm$core$Tuple$first, A2($elm$core$List$filter, $elm$core$Tuple$second, classes))));
     };
     var $elm_community$html_extra$Html$Attributes$Extra$empty = $elm$html$Html$Attributes$classList(_List_Nil);
-    var $elm$html$Html$Attributes$title = $elm$html$Html$Attributes$stringProperty('title');
     var $author$project$Main$valuePill = F2(function(onClick, money) {
         var color = $author$project$Data$Money$isNegative(money) ? $elm$html$Html$Attributes$class('bg-red-200 border-red-400 text-red-600 hover:bg-red-300 hover:border-red-500') : $elm$html$Html$Attributes$class('bg-lime-200 border-lime-400 text-lime-600 hover:bg-lime-300 hover:border-lime-500');
         return A2($elm$html$Html$div, _List_fromArray([
@@ -5497,32 +5601,21 @@ type alias Process =
                 return $elm$html$Html$Attributes$title('Click to select where to take money from.');
             }, onClick))
         ]), _List_fromArray([
-            $elm$html$Html$text($author$project$Data$Money$toString(money) + ' Kč')
+            $elm$html$Html$text($author$project$Data$Money$toStringWithCurrency(money))
         ]));
+    });
+    var $elm_community$html_extra$Html$Extra$viewMaybe = F2(function(fn, maybeThing) {
+        return A2($elm$core$Maybe$withDefault, $elm_community$html_extra$Html$Extra$nothing, A2($elm$core$Maybe$map, fn, maybeThing));
     });
     var $author$project$Main$bucketView = F3(function(model, categoriesAndBuckets, bucket) {
         var moneyOp = A2($author$project$Data$IdDict$get, bucket.id, model.bucketMoneyOps);
         return A2($elm$html$Html$div, _List_fromArray([
-            $elm$html$Html$Attributes$class('px-2 py-1 border bg-slate-100 flex justify-between hover:bg-sky-100')
+            $elm$html$Html$Attributes$class('group px-2 py-1 border bg-slate-100 flex justify-between hover:bg-sky-100')
         ]), _List_fromArray([
             function() {
-                var _v0 = A2($author$project$Data$IdDict$get, bucket.id, model.bucketRenameInputs);
-                if (_v0.$ === 'Nothing') return A2($elm$html$Html$div, _List_fromArray([
-                    $elm$html$Html$Attributes$class('flex gap-2')
-                ]), _List_fromArray([
-                    A2($elm$html$Html$div, _List_fromArray([
-                        $elm$html$Html$Attributes$class('font-semibold')
-                    ]), _List_fromArray([
-                        $elm$html$Html$text(bucket.name)
-                    ])),
-                    A3($author$project$Main$button, $author$project$Main$Inline, _List_fromArray([
-                        $elm$html$Html$Events$onClick(A2($author$project$Main$SetRenameBucketInput, bucket.id, bucket.name))
-                    ]), _List_fromArray([
-                        $author$project$Icons$pencil
-                    ]))
-                ]));
-                else {
-                    var newName = _v0.a;
+                var _v0 = _Utils_Tuple2(A2($author$project$Data$IdDict$get, bucket.id, model.bucketRenameInputs), A2($author$project$Data$IdDict$get, bucket.id, model.bucketGoalInputs));
+                if (_v0.a.$ === 'Just') {
+                    var newName = _v0.a.a;
                     return A2($elm$html$Html$div, _List_fromArray([
                         $elm$html$Html$Attributes$class('flex gap-1')
                     ]), _List_fromArray([
@@ -5543,12 +5636,73 @@ type alias Process =
                             $author$project$Icons$check
                         ]))
                     ]));
+                } else if (_v0.b.$ === 'Nothing') {
+                    var _v1 = _v0.a;
+                    var _v2 = _v0.b;
+                    return A2($elm$html$Html$div, _List_fromArray([
+                        $elm$html$Html$Attributes$class('flex gap-2')
+                    ]), _List_fromArray([
+                        A2($elm$html$Html$div, _List_fromArray([
+                            $elm$html$Html$Attributes$class('font-semibold')
+                        ]), _List_fromArray([
+                            $elm$html$Html$text(bucket.name)
+                        ])),
+                        function() {
+                            var _v3 = bucket.goal;
+                            if (_v3.$ === 'Nothing') return $elm_community$html_extra$Html$Extra$nothing;
+                            else {
+                                var goal = _v3.a;
+                                return A2($elm$html$Html$div, _List_fromArray([
+                                    $elm$html$Html$Attributes$class('text-gray-400')
+                                ]), _List_fromArray([
+                                    $elm$html$Html$text('(goal: ' + ($author$project$Data$Money$toStringWithCurrency(goal) + ')'))
+                                ]));
+                            }
+                        }(),
+                        A3($author$project$Main$button, $author$project$Main$Inline, _List_fromArray([
+                            $elm$html$Html$Events$onClick(A2($author$project$Main$SetRenameBucketInput, bucket.id, bucket.name)),
+                            $elm$html$Html$Attributes$class('invisible group-hover:visible'),
+                            $elm$html$Html$Attributes$title('Rename bucket')
+                        ]), _List_fromArray([
+                            $author$project$Icons$pencil
+                        ])),
+                        A3($author$project$Main$button, $author$project$Main$Inline, _List_fromArray([
+                            $elm$html$Html$Events$onClick(A2($author$project$Main$SetBucketGoalInput, bucket.id, A2($elm$core$Maybe$withDefault, '', A2($elm$core$Maybe$map, $author$project$Data$Money$toString, bucket.goal)))),
+                            $elm$html$Html$Attributes$class('invisible group-hover:visible'),
+                            $elm$html$Html$Attributes$title('Set a goal')
+                        ]), _List_fromArray([
+                            $author$project$Icons$flagCheckered
+                        ]))
+                    ]));
+                } else {
+                    var _v4 = _v0.a;
+                    var goalString = _v0.b.a;
+                    return A2($elm$html$Html$div, _List_fromArray([
+                        $elm$html$Html$Attributes$class('flex gap-1')
+                    ]), _List_fromArray([
+                        A2($author$project$Main$input, _List_fromArray([
+                            $elm$html$Html$Events$onInput($author$project$Main$SetBucketGoalInput(bucket.id)),
+                            $elm_community$html_extra$Html$Events$Extra$onEnter($author$project$Main$FinishBucketGoal(bucket.id)),
+                            $elm$html$Html$Attributes$placeholder('Goal (empty = remove)')
+                        ]), goalString),
+                        A3($author$project$Main$button, $author$project$Main$Sky, _List_fromArray([
+                            $elm$html$Html$Events$onClick($author$project$Main$CancelBucketGoal(bucket.id))
+                        ]), _List_fromArray([
+                            $author$project$Icons$xmark
+                        ])),
+                        A3($author$project$Main$button, $author$project$Main$Sky, _List_fromArray([
+                            $elm$html$Html$Events$onClick($author$project$Main$FinishBucketGoal(bucket.id))
+                        ]), _List_fromArray([
+                            $author$project$Icons$check
+                        ]))
+                    ]));
                 }
             }(),
             A2($elm$html$Html$div, _List_fromArray([
                 $elm$html$Html$Attributes$class('flex gap-2')
             ]), _List_fromArray([
                 A2($author$project$Main$valuePill, $elm$core$Maybe$Just(A2($author$project$Main$StartMoneyOp, $author$project$Main$NormalBucket(bucket.id), A2($author$project$Main$TakeFromM, $elm$core$Maybe$Nothing, $author$project$Data$Money$toString($author$project$Data$Money$complementToPositive(bucket.value))))), bucket.value),
+                A2($elm_community$html_extra$Html$Extra$viewMaybe, $author$project$Main$goalView(bucket.value), bucket.goal),
                 A2($author$project$Main$moneyOpView, {
                     bucketName: $author$project$Main$getBucketName(model),
                     cancelMoneyOp: $author$project$Main$CancelMoneyOp($author$project$Main$NormalBucket(bucket.id)),
@@ -5577,7 +5731,7 @@ type alias Process =
             $elm$html$Html$Attributes$class('p-2 border bg-slate-50 flex flex-col gap-2')
         ]), _List_fromArray([
             A2($elm$html$Html$div, _List_fromArray([
-                $elm$html$Html$Attributes$class('flex justify-between')
+                $elm$html$Html$Attributes$class('group flex justify-between')
             ]), _List_fromArray([
                 function() {
                     var _v1 = A2($author$project$Data$IdDict$get, category.id, model.categoryRenameInputs);
@@ -5590,7 +5744,9 @@ type alias Process =
                             $elm$html$Html$text(category.name)
                         ])),
                         A3($author$project$Main$button, $author$project$Main$Inline, _List_fromArray([
-                            $elm$html$Html$Events$onClick(A2($author$project$Main$SetRenameCategoryInput, category.id, category.name))
+                            $elm$html$Html$Events$onClick(A2($author$project$Main$SetRenameCategoryInput, category.id, category.name)),
+                            $elm$html$Html$Attributes$class('invisible group-hover:visible'),
+                            $elm$html$Html$Attributes$title('Rename category')
                         ]), _List_fromArray([
                             $author$project$Icons$pencil
                         ]))
@@ -5668,6 +5824,7 @@ type alias Process =
             return A2($author$project$Data$IdDict$get, categoryId, model.categories);
         }, model.categoriesOrder));
     };
+    var $elm$html$Html$span = _VirtualDom_node('span');
     var $author$project$Main$view = function(model) {
         var totalValue = A2($author$project$Data$Money$add, model.toBeBudgeted, A3($elm$core$List$foldl, $author$project$Data$Money$add, $author$project$Data$Money$zero, A2($elm$core$List$map, function($) {
             return $.value;
@@ -5681,7 +5838,7 @@ type alias Process =
                 $elm$html$Html$Attributes$class('flex justify-between')
             ]), _List_fromArray([
                 A2($elm$html$Html$span, _List_fromArray([
-                    $elm$html$Html$Attributes$class('font-bold')
+                    $elm$html$Html$Attributes$class('text-xl font-bold')
                 ]), _List_fromArray([
                     $elm$html$Html$text('Budgeting')
                 ])),
@@ -5786,4 +5943,4 @@ $d3d62a653380dacf$var$app.ports.saveToLocalStorage.subscribe((string)=>{
 });
 
 
-//# sourceMappingURL=index.6143acc4.js.map
+//# sourceMappingURL=index.73f6fafb.js.map
