@@ -732,7 +732,7 @@ categoryView model categoriesAndBuckets ( category, buckets ) =
     Html.div
         [ Attrs.class "p-2 border bg-slate-50 flex flex-col gap-2" ]
         [ Html.div
-            [ Attrs.class "flex justify-between" ]
+            [ Attrs.class "group flex justify-between" ]
             [ case IdDict.get category.id model.categoryRenameInputs of
                 Nothing ->
                     Html.div
@@ -742,7 +742,9 @@ categoryView model categoriesAndBuckets ( category, buckets ) =
                             [ Html.text category.name ]
                         , button
                             Inline
-                            [ Events.onClick <| SetRenameCategoryInput category.id category.name ]
+                            [ Events.onClick <| SetRenameCategoryInput category.id category.name
+                            , Attrs.class "invisible group-hover:visible"
+                            ]
                             [ Icons.pencil ]
                         ]
 
@@ -875,7 +877,7 @@ bucketView model categoriesAndBuckets bucket =
             IdDict.get bucket.id model.bucketMoneyOps
     in
     Html.div
-        [ Attrs.class "px-2 py-1 border bg-slate-100 flex justify-between hover:bg-sky-100" ]
+        [ Attrs.class "group px-2 py-1 border bg-slate-100 flex justify-between hover:bg-sky-100" ]
         [ case IdDict.get bucket.id model.bucketRenameInputs of
             Nothing ->
                 Html.div
@@ -885,7 +887,9 @@ bucketView model categoriesAndBuckets bucket =
                         [ Html.text bucket.name ]
                     , button
                         Inline
-                        [ Events.onClick <| SetRenameBucketInput bucket.id bucket.name ]
+                        [ Events.onClick <| SetRenameBucketInput bucket.id bucket.name
+                        , Attrs.class "invisible group-hover:visible"
+                        ]
                         [ Icons.pencil ]
                     ]
 
