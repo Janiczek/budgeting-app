@@ -8,6 +8,9 @@ import Data.Id
 import Data.IdDict as IdDict exposing (IdDict)
 import Data.IdSet as IdSet exposing (IdSet)
 import Data.Money as Money exposing (Money)
+import File exposing (File)
+import File.Download
+import File.Select
 import Html exposing (Attribute, Html)
 import Html.Attributes as Attrs
 import Html.Attributes.Extra as Attrs
@@ -64,6 +67,10 @@ type Msg
     | FinishMoneyOp BucketType
     | CancelMoneyOp BucketType
     | FocusAttempted
+    | Export
+    | ImportButtonClicked
+    | ImportFileSelected File
+    | ImportJson String
 
 
 type MoneyOp
@@ -235,6 +242,32 @@ update msg model =
     case msg of
         FocusAttempted ->
             ( model, Cmd.none )
+
+        Export ->
+            ( model
+            , File.Download.string
+                "budgeting.json"
+                "application/json"
+                (encodeSavedModel <| getSavedModel model)
+            )
+
+        ImportButtonClicked ->
+            ( model
+            , File.Select.file [ "application/json" ] ImportFileSelected
+            )
+
+        ImportFileSelected file ->
+            ( model
+            , Task.perform ImportJson (File.toString file)
+            )
+
+        ImportJson jsonString ->
+            ( jsonString
+                |> Decode.decodeString savedModelDecoder
+                |> Result.map (initModel model.idSeed)
+                |> Result.withDefault model
+            , Cmd.none
+            )
 
         SetNewCategoryInput input_ ->
             ( { model | newCategoryInput = input_ }
@@ -543,7 +576,7 @@ view model =
             sortedCategoriesAndBuckets model
     in
     Html.div
-        [ Attrs.class "p-2 flex flex-col gap-2 tabular-nums" ]
+        [ Attrs.class "p-2 flex flex-col gap-2 tabular-nums text-[14px]" ]
         [ Html.div
             [ Attrs.class "flex justify-between" ]
             [ Html.span
@@ -560,7 +593,7 @@ view model =
                     [ Html.text <| toBeBudgetedName ++ ": "
                     , valuePill
                         (model.toBeBudgeted
-                            |> Money.negate
+                            |> Money.complementToPositive
                             |> Money.toString
                             |> TakeFromM Nothing
                             |> StartMoneyOp ToBeBudgeted
@@ -600,6 +633,17 @@ view model =
                 Sky
                 [ Events.onClick addCategory ]
                 [ Html.text "Add category" ]
+            ]
+        , Html.div
+            [ Attrs.class "flex gap-2" ]
+            [ button
+                Orange
+                [ Events.onClick ImportButtonClicked ]
+                [ Html.text "Import" ]
+            , button
+                Orange
+                [ Events.onClick Export ]
+                [ Html.text "Export" ]
             ]
         ]
 
@@ -733,7 +777,7 @@ bucketView model categoriesAndBuckets bucket =
             IdDict.get bucket.id model.bucketMoneyOps
     in
     Html.div
-        [ Attrs.class "px-2 py-1 border bg-slate-100 flex justify-between" ]
+        [ Attrs.class "px-2 py-1 border bg-slate-100 flex justify-between hover:bg-sky-100" ]
         [ Html.div
             [ Attrs.class "font-semibold" ]
             [ Html.text bucket.name ]
@@ -741,7 +785,7 @@ bucketView model categoriesAndBuckets bucket =
             [ Attrs.class "flex gap-2" ]
             [ valuePill
                 (bucket.value
-                    |> Money.negate
+                    |> Money.complementToPositive
                     |> Money.toString
                     |> TakeFromM Nothing
                     |> StartMoneyOp (NormalBucket bucket.id)
@@ -1001,31 +1045,27 @@ input attrs value =
 
 
 valuePill : Maybe msg -> Money -> Html msg
-valuePill onNegativeClick money =
+valuePill onClick money =
     let
-        ( color, maybeOnClick ) =
+        color =
             if Money.isNegative money then
-                ( Attrs.class "bg-red-200 border-red-400 text-red-600 hover:bg-red-300 hover:border-red-500"
-                , onNegativeClick
-                )
+                Attrs.class "bg-red-200 border-red-400 text-red-600 hover:bg-red-300 hover:border-red-500"
 
             else
-                ( Attrs.class "bg-lime-200 border-lime-400 text-lime-600 hover:bg-lime-300 hover:border-lime-500"
-                , Nothing
-                )
+                Attrs.class "bg-lime-200 border-lime-400 text-lime-600 hover:bg-lime-300 hover:border-lime-500"
     in
     Html.div
         [ Attrs.class "rounded px-2 border"
         , color
-        , maybeOnClick
+        , onClick
             |> Maybe.map Events.onClick
             |> Maybe.withDefault Attrs.empty
-        , maybeOnClick
+        , onClick
             |> Maybe.map (\_ -> "cursor-pointer")
             |> Maybe.withDefault ""
             |> Attrs.class
-        , maybeOnClick
-            |> Maybe.map (\_ -> Attrs.title "Whoops! Click to select how to fix this.")
+        , onClick
+            |> Maybe.map (\_ -> Attrs.title "Click to select where to take money from.")
             |> Maybe.withDefault Attrs.empty
         ]
         [ Html.text <| Money.toString money ++ " Kč" ]

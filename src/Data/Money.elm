@@ -1,11 +1,11 @@
 module Data.Money exposing
     ( Money
     , add
+    , complementToPositive
     , decoder
     , encode
     , fromString
     , isNegative
-    , negate
     , subtract
     , toString
     , zero
@@ -120,9 +120,12 @@ decoder =
     Decode.map Money Decode.int
 
 
-negate : Money -> Money
-negate (Money int) =
-    Money <| Basics.negate int
+complementToPositive : Money -> Money
+complementToPositive (Money int) =
+    int
+        |> negate
+        |> max 0
+        |> Money
 
 
 isNegative : Money -> Bool
