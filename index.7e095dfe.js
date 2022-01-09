@@ -2895,6 +2895,142 @@ type alias Process =
     var _Bitwise_shiftRightZfBy = F2(function(offset, a) {
         return a >>> offset;
     });
+    // DECODER
+    var _File_decoder = _Json_decodePrim(function(value) {
+        // NOTE: checks if `File` exists in case this is run on node
+        return typeof File !== 'undefined' && value instanceof File ? $elm$core$Result$Ok(value) : _Json_expecting('a FILE', value);
+    });
+    // METADATA
+    function _File_name(file) {
+        return file.name;
+    }
+    function _File_mime(file) {
+        return file.type;
+    }
+    function _File_size(file) {
+        return file.size;
+    }
+    function _File_lastModified(file) {
+        return $elm$time$Time$millisToPosix(file.lastModified);
+    }
+    // DOWNLOAD
+    var _File_downloadNode;
+    function _File_getDownloadNode() {
+        return _File_downloadNode || (_File_downloadNode = document.createElement('a'));
+    }
+    var _File_download = F3(function(name, mime, content) {
+        return _Scheduler_binding(function(callback) {
+            var blob = new Blob([
+                content
+            ], {
+                type: mime
+            });
+            // for IE10+
+            if (navigator.msSaveOrOpenBlob) {
+                navigator.msSaveOrOpenBlob(blob, name);
+                return;
+            }
+            // for HTML5
+            var node = _File_getDownloadNode();
+            var objectUrl = URL.createObjectURL(blob);
+            node.href = objectUrl;
+            node.download = name;
+            _File_click(node);
+            URL.revokeObjectURL(objectUrl);
+        });
+    });
+    function _File_downloadUrl(href) {
+        return _Scheduler_binding(function(callback) {
+            var node = _File_getDownloadNode();
+            node.href = href;
+            node.download = '';
+            node.origin === location.origin || (node.target = '_blank');
+            _File_click(node);
+        });
+    }
+    // IE COMPATIBILITY
+    function _File_makeBytesSafeForInternetExplorer(bytes) {
+        // only needed by IE10 and IE11 to fix https://github.com/elm/file/issues/10
+        // all other browsers can just run `new Blob([bytes])` directly with no problem
+        //
+        return new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    }
+    function _File_click(node) {
+        // only needed by IE10 and IE11 to fix https://github.com/elm/file/issues/11
+        // all other browsers have MouseEvent and do not need this conditional stuff
+        //
+        if (typeof MouseEvent === 'function') node.dispatchEvent(new MouseEvent('click'));
+        else {
+            var event = document.createEvent('MouseEvents');
+            event.initMouseEvent('click', true, true, window, 0, 0, 0, 0, 0, false, false, false, false, 0, null);
+            document.body.appendChild(node);
+            node.dispatchEvent(event);
+            document.body.removeChild(node);
+        }
+    }
+    // UPLOAD
+    var _File_node;
+    function _File_uploadOne(mimes) {
+        return _Scheduler_binding(function(callback) {
+            _File_node = document.createElement('input');
+            _File_node.type = 'file';
+            _File_node.accept = A2($elm$core$String$join, ',', mimes);
+            _File_node.addEventListener('change', function(event) {
+                callback(_Scheduler_succeed(event.target.files[0]));
+            });
+            _File_click(_File_node);
+        });
+    }
+    function _File_uploadOneOrMore(mimes) {
+        return _Scheduler_binding(function(callback) {
+            _File_node = document.createElement('input');
+            _File_node.type = 'file';
+            _File_node.multiple = true;
+            _File_node.accept = A2($elm$core$String$join, ',', mimes);
+            _File_node.addEventListener('change', function(event) {
+                var elmFiles = _List_fromArray(event.target.files);
+                callback(_Scheduler_succeed(_Utils_Tuple2(elmFiles.a, elmFiles.b)));
+            });
+            _File_click(_File_node);
+        });
+    }
+    // CONTENT
+    function _File_toString(blob) {
+        return _Scheduler_binding(function(callback) {
+            var reader = new FileReader();
+            reader.addEventListener('loadend', function() {
+                callback(_Scheduler_succeed(reader.result));
+            });
+            reader.readAsText(blob);
+            return function() {
+                reader.abort();
+            };
+        });
+    }
+    function _File_toBytes(blob) {
+        return _Scheduler_binding(function(callback) {
+            var reader = new FileReader();
+            reader.addEventListener('loadend', function() {
+                callback(_Scheduler_succeed(new DataView(reader.result)));
+            });
+            reader.readAsArrayBuffer(blob);
+            return function() {
+                reader.abort();
+            };
+        });
+    }
+    function _File_toUrl(blob) {
+        return _Scheduler_binding(function(callback) {
+            var reader = new FileReader();
+            reader.addEventListener('loadend', function() {
+                callback(_Scheduler_succeed(reader.result));
+            });
+            reader.readAsDataURL(blob);
+            return function() {
+                reader.abort();
+            };
+        });
+    }
     var $elm$core$Maybe$Just = function(a) {
         return {
             $: 'Just',
@@ -3869,6 +4005,18 @@ type alias Process =
             a: a
         };
     };
+    var $author$project$Main$ImportFileSelected = function(a) {
+        return {
+            $: 'ImportFileSelected',
+            a: a
+        };
+    };
+    var $author$project$Main$ImportJson = function(a) {
+        return {
+            $: 'ImportJson',
+            a: a
+        };
+    };
     var $author$project$Main$MoneyOpInput = function(a) {
         return {
             $: 'MoneyOpInput',
@@ -4145,6 +4293,16 @@ type alias Process =
     });
     var $elm$core$Basics$composeR = F3(function(f, g, x) {
         return g(f(x));
+    });
+    var $elm$time$Time$Posix = function(a) {
+        return {
+            $: 'Posix',
+            a: a
+        };
+    };
+    var $elm$time$Time$millisToPosix = $elm$time$Time$Posix;
+    var $elm$file$File$Select$file = F2(function(mimes, toMsg) {
+        return A2($elm$core$Task$perform, toMsg, _File_uploadOne(mimes));
     });
     var $elm$core$Dict$foldl = F3(function(func, acc, dict) {
         foldl: while(true){
@@ -4496,6 +4654,15 @@ type alias Process =
         var dict = _v0.a;
         return $turboMaCk$any_dict$Dict$Any$keys(dict);
     };
+    var $elm$core$Result$map = F2(function(func, ra) {
+        if (ra.$ === 'Ok') {
+            var a = ra.a;
+            return $elm$core$Result$Ok(func(a));
+        } else {
+            var e = ra.a;
+            return $elm$core$Result$Err(e);
+        }
+    });
     var $elm$core$Dict$member = F2(function(key, dict) {
         var _v0 = A2($elm$core$Dict$get, key, dict);
         if (_v0.$ === 'Just') return true;
@@ -4521,11 +4688,15 @@ type alias Process =
         var generator = _v0.a;
         return generator(seed);
     });
+    var $elm$file$File$Download$string = F3(function(name, mime, content) {
+        return A2($elm$core$Task$perform, $elm$core$Basics$never, A3(_File_download, name, mime, content));
+    });
     var $author$project$Data$Money$subtract = F2(function(_v0, _v1) {
         var int1 = _v0.a;
         var int2 = _v1.a;
         return $author$project$Data$Money$Money(int2 - int1);
     });
+    var $elm$file$File$toString = _File_toString;
     var $elm$core$Dict$update = F3(function(targetKey, alter, dictionary) {
         var _v0 = alter(A2($elm$core$Dict$get, targetKey, dictionary));
         if (_v0.$ === 'Just') {
@@ -4566,10 +4737,28 @@ type alias Process =
         var dict = _v0.a;
         return $turboMaCk$any_dict$Dict$Any$values(dict);
     };
+    var $elm$core$Result$withDefault = F2(function(def, result) {
+        if (result.$ === 'Ok') {
+            var a = result.a;
+            return a;
+        } else return def;
+    });
     var $author$project$Main$update = F2(function(msg, model) {
         switch(msg.$){
             case 'FocusAttempted':
                 return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
+            case 'Export':
+                return _Utils_Tuple2(model, A3($elm$file$File$Download$string, 'budgeting.json', 'application/json', $author$project$Main$encodeSavedModel($author$project$Main$getSavedModel(model))));
+            case 'ImportButtonClicked':
+                return _Utils_Tuple2(model, A2($elm$file$File$Select$file, _List_fromArray([
+                    'application/json'
+                ]), $author$project$Main$ImportFileSelected));
+            case 'ImportFileSelected':
+                var file = msg.a;
+                return _Utils_Tuple2(model, A2($elm$core$Task$perform, $author$project$Main$ImportJson, $elm$file$File$toString(file)));
+            case 'ImportJson':
+                var jsonString = msg.a;
+                return _Utils_Tuple2(A2($elm$core$Result$withDefault, model, A2($elm$core$Result$map, $author$project$Main$initModel(model.idSeed), A2($elm$json$Json$Decode$decodeString, $author$project$Main$savedModelDecoder, jsonString))), $elm$core$Platform$Cmd$none);
             case 'SetNewCategoryInput':
                 var input_1 = msg.a;
                 return _Utils_Tuple2(_Utils_update(model, {
@@ -4803,11 +4992,20 @@ type alias Process =
             a: a
         };
     };
+    var $author$project$Main$Export = {
+        $: 'Export'
+    };
     var $author$project$Main$FinishMoneyOp = function(a) {
         return {
             $: 'FinishMoneyOp',
             a: a
         };
+    };
+    var $author$project$Main$ImportButtonClicked = {
+        $: 'ImportButtonClicked'
+    };
+    var $author$project$Main$Orange = {
+        $: 'Orange'
     };
     var $author$project$Main$SelectMoneyOpOtherBucket = F2(function(a, b) {
         return {
@@ -4861,9 +5059,6 @@ type alias Process =
             b: b
         };
     });
-    var $author$project$Main$Orange = {
-        $: 'Orange'
-    };
     var $author$project$Main$RemoveCategory = function(a) {
         return {
             $: 'RemoveCategory',
@@ -4888,6 +5083,10 @@ type alias Process =
             $: 'RemoveBucket',
             a: a
         };
+    };
+    var $author$project$Data$Money$complementToPositive = function(_v0) {
+        var _int = _v0.a;
+        return $author$project$Data$Money$Money(A2($elm$core$Basics$max, 0, -_int));
     };
     var $elm$html$Html$div = _VirtualDom_node('div');
     var $author$project$Main$toBeBudgetedName = 'To be budgeted';
@@ -5174,10 +5373,6 @@ type alias Process =
                 }, sourceBucket, valueString1);
         }
     });
-    var $author$project$Data$Money$negate = function(_v0) {
-        var _int = _v0.a;
-        return $author$project$Data$Money$Money(-_int);
-    };
     var $elm$core$String$pad = F3(function(n, _char, string) {
         var half = (n - $elm$core$String$length(string)) / 2;
         return _Utils_ap(A2($elm$core$String$repeat, $elm$core$Basics$ceiling(half), $elm$core$String$fromChar(_char)), _Utils_ap(string, A2($elm$core$String$repeat, $elm$core$Basics$floor(half), $elm$core$String$fromChar(_char))));
@@ -5193,20 +5388,18 @@ type alias Process =
     };
     var $elm_community$html_extra$Html$Attributes$Extra$empty = $elm$html$Html$Attributes$classList(_List_Nil);
     var $elm$html$Html$Attributes$title = $elm$html$Html$Attributes$stringProperty('title');
-    var $author$project$Main$valuePill = F2(function(onNegativeClick, money) {
-        var _v0 = $author$project$Data$Money$isNegative(money) ? _Utils_Tuple2($elm$html$Html$Attributes$class('bg-red-200 border-red-400 text-red-600 hover:bg-red-300 hover:border-red-500'), onNegativeClick) : _Utils_Tuple2($elm$html$Html$Attributes$class('bg-lime-200 border-lime-400 text-lime-600 hover:bg-lime-300 hover:border-lime-500'), $elm$core$Maybe$Nothing);
-        var color = _v0.a;
-        var maybeOnClick = _v0.b;
+    var $author$project$Main$valuePill = F2(function(onClick, money) {
+        var color = $author$project$Data$Money$isNegative(money) ? $elm$html$Html$Attributes$class('bg-red-200 border-red-400 text-red-600 hover:bg-red-300 hover:border-red-500') : $elm$html$Html$Attributes$class('bg-lime-200 border-lime-400 text-lime-600 hover:bg-lime-300 hover:border-lime-500');
         return A2($elm$html$Html$div, _List_fromArray([
             $elm$html$Html$Attributes$class('rounded px-2 border'),
             color,
-            A2($elm$core$Maybe$withDefault, $elm_community$html_extra$Html$Attributes$Extra$empty, A2($elm$core$Maybe$map, $elm$html$Html$Events$onClick, maybeOnClick)),
-            $elm$html$Html$Attributes$class(A2($elm$core$Maybe$withDefault, '', A2($elm$core$Maybe$map, function(_v1) {
+            A2($elm$core$Maybe$withDefault, $elm_community$html_extra$Html$Attributes$Extra$empty, A2($elm$core$Maybe$map, $elm$html$Html$Events$onClick, onClick)),
+            $elm$html$Html$Attributes$class(A2($elm$core$Maybe$withDefault, '', A2($elm$core$Maybe$map, function(_v0) {
                 return 'cursor-pointer';
-            }, maybeOnClick))),
-            A2($elm$core$Maybe$withDefault, $elm_community$html_extra$Html$Attributes$Extra$empty, A2($elm$core$Maybe$map, function(_v2) {
-                return $elm$html$Html$Attributes$title('Whoops! Click to select how to fix this.');
-            }, maybeOnClick))
+            }, onClick))),
+            A2($elm$core$Maybe$withDefault, $elm_community$html_extra$Html$Attributes$Extra$empty, A2($elm$core$Maybe$map, function(_v1) {
+                return $elm$html$Html$Attributes$title('Click to select where to take money from.');
+            }, onClick))
         ]), _List_fromArray([
             $elm$html$Html$text($author$project$Data$Money$toString(money) + ' Kč')
         ]));
@@ -5214,7 +5407,7 @@ type alias Process =
     var $author$project$Main$bucketView = F3(function(model, categoriesAndBuckets, bucket) {
         var moneyOp = A2($author$project$Data$IdDict$get, bucket.id, model.bucketMoneyOps);
         return A2($elm$html$Html$div, _List_fromArray([
-            $elm$html$Html$Attributes$class('px-2 py-1 border bg-slate-100 flex justify-between')
+            $elm$html$Html$Attributes$class('px-2 py-1 border bg-slate-100 flex justify-between hover:bg-sky-100')
         ]), _List_fromArray([
             A2($elm$html$Html$div, _List_fromArray([
                 $elm$html$Html$Attributes$class('font-semibold')
@@ -5224,7 +5417,7 @@ type alias Process =
             A2($elm$html$Html$div, _List_fromArray([
                 $elm$html$Html$Attributes$class('flex gap-2')
             ]), _List_fromArray([
-                A2($author$project$Main$valuePill, $elm$core$Maybe$Just(A2($author$project$Main$StartMoneyOp, $author$project$Main$NormalBucket(bucket.id), A2($author$project$Main$TakeFromM, $elm$core$Maybe$Nothing, $author$project$Data$Money$toString($author$project$Data$Money$negate(bucket.value))))), bucket.value),
+                A2($author$project$Main$valuePill, $elm$core$Maybe$Just(A2($author$project$Main$StartMoneyOp, $author$project$Main$NormalBucket(bucket.id), A2($author$project$Main$TakeFromM, $elm$core$Maybe$Nothing, $author$project$Data$Money$toString($author$project$Data$Money$complementToPositive(bucket.value))))), bucket.value),
                 A2($author$project$Main$moneyOpView, {
                     bucketName: $author$project$Main$getBucketName(model),
                     cancelMoneyOp: $author$project$Main$CancelMoneyOp($author$project$Main$NormalBucket(bucket.id)),
@@ -5316,7 +5509,7 @@ type alias Process =
         var categoriesAndBuckets = $author$project$Main$sortedCategoriesAndBuckets(model);
         var addCategory = $author$project$Main$AddCategory(model.newCategoryInput);
         return A2($elm$html$Html$div, _List_fromArray([
-            $elm$html$Html$Attributes$class('p-2 flex flex-col gap-2 tabular-nums')
+            $elm$html$Html$Attributes$class('p-2 flex flex-col gap-2 tabular-nums text-[14px]')
         ]), _List_fromArray([
             A2($elm$html$Html$div, _List_fromArray([
                 $elm$html$Html$Attributes$class('flex justify-between')
@@ -5339,7 +5532,7 @@ type alias Process =
                         $elm$html$Html$Attributes$class('flex gap-2')
                     ]), _List_fromArray([
                         $elm$html$Html$text($author$project$Main$toBeBudgetedName + ': '),
-                        A2($author$project$Main$valuePill, $elm$core$Maybe$Just(A2($author$project$Main$StartMoneyOp, $author$project$Main$ToBeBudgeted, A2($author$project$Main$TakeFromM, $elm$core$Maybe$Nothing, $author$project$Data$Money$toString($author$project$Data$Money$negate(model.toBeBudgeted))))), model.toBeBudgeted),
+                        A2($author$project$Main$valuePill, $elm$core$Maybe$Just(A2($author$project$Main$StartMoneyOp, $author$project$Main$ToBeBudgeted, A2($author$project$Main$TakeFromM, $elm$core$Maybe$Nothing, $author$project$Data$Money$toString($author$project$Data$Money$complementToPositive(model.toBeBudgeted))))), model.toBeBudgeted),
                         A2($author$project$Main$moneyOpView, {
                             bucketName: $author$project$Main$getBucketName(model),
                             cancelMoneyOp: $author$project$Main$CancelMoneyOp($author$project$Main$ToBeBudgeted),
@@ -5370,6 +5563,20 @@ type alias Process =
                     $elm$html$Html$Events$onClick(addCategory)
                 ]), _List_fromArray([
                     $elm$html$Html$text('Add category')
+                ]))
+            ])),
+            A2($elm$html$Html$div, _List_fromArray([
+                $elm$html$Html$Attributes$class('flex gap-2')
+            ]), _List_fromArray([
+                A3($author$project$Main$button, $author$project$Main$Orange, _List_fromArray([
+                    $elm$html$Html$Events$onClick($author$project$Main$ImportButtonClicked)
+                ]), _List_fromArray([
+                    $elm$html$Html$text('Import')
+                ])),
+                A3($author$project$Main$button, $author$project$Main$Orange, _List_fromArray([
+                    $elm$html$Html$Events$onClick($author$project$Main$Export)
+                ]), _List_fromArray([
+                    $elm$html$Html$text('Export')
                 ]))
             ]))
         ]));
@@ -5413,4 +5620,4 @@ $d3d62a653380dacf$var$app.ports.saveToLocalStorage.subscribe((string)=>{
 });
 
 
-//# sourceMappingURL=index.91a308cc.js.map
+//# sourceMappingURL=index.7e095dfe.js.map
