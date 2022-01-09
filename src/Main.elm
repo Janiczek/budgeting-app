@@ -57,25 +57,31 @@ type alias Model =
 
 
 type Msg
-    = SetNewCategoryInput String
+    = -- bucket/category management
+      SetNewCategoryInput String
     | SetNewBucketInput CategoryId String
     | AddCategory String
     | AddBucket CategoryId String
     | RemoveCategory CategoryId
     | RemoveBucket BucketId
+      -- money operations
     | StartMoneyOp BucketType MoneyOp
     | SetMoneyOpInput BucketType String
     | SelectMoneyOpOtherBucket BucketType BucketType
     | FinishMoneyOp BucketType
     | CancelMoneyOp BucketType
+      -- focus
     | FocusAttempted
+      -- export/import
     | Export
     | ImportButtonClicked
     | ImportFileSelected File
     | ImportJson String
+      -- renaming buckets
     | SetRenameBucketInput BucketId String
     | CancelRenamingBucket BucketId
     | FinishRenamingBucket BucketId
+      -- renaming categories
     | SetRenameCategoryInput CategoryId String
     | CancelRenamingCategory CategoryId
     | FinishRenamingCategory CategoryId
