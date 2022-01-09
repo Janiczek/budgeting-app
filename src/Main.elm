@@ -16,6 +16,7 @@ import Html.Attributes as Attrs
 import Html.Attributes.Extra as Attrs
 import Html.Events as Events
 import Html.Events.Extra as Events
+import Html.Extra as Html
 import Icons
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
@@ -46,6 +47,7 @@ type alias Model =
     , newBucketInputs : IdDict CategoryIdTag String
     , categoryRenameInputs : IdDict CategoryIdTag String
     , bucketRenameInputs : IdDict BucketIdTag String
+    , bucketGoalInputs : IdDict BucketIdTag String
 
     --
     , bucketMoneyOps : IdDict BucketIdTag MoneyOp
@@ -85,6 +87,10 @@ type Msg
     | SetRenameCategoryInput CategoryId String
     | CancelRenamingCategory CategoryId
     | FinishRenamingCategory CategoryId
+      -- bucket goals
+    | SetBucketGoalInput BucketId String
+    | CancelBucketGoal BucketId
+    | FinishBucketGoal BucketId
 
 
 type MoneyOp
@@ -165,6 +171,7 @@ initModel idSeed savedModel =
     , newBucketInputs = IdDict.empty
     , categoryRenameInputs = IdDict.empty
     , bucketRenameInputs = IdDict.empty
+    , bucketGoalInputs = IdDict.empty
 
     --
     , bucketMoneyOps = IdDict.empty
@@ -234,13 +241,34 @@ update_ msg model =
         ( newModel, cmd ) =
             update msg model
 
+        oldSavedModel : SavedModel
+        oldSavedModel =
+            getSavedModel model
+
+        newSavedModel : SavedModel
+        newSavedModel =
+            getSavedModel newModel
+
         saveCmd : Cmd Msg
         saveCmd =
-            saveToLocalStorage (encodeSavedModel (getSavedModel newModel))
+            if equalSavedModel oldSavedModel newSavedModel then
+                Cmd.none
+
+            else
+                saveToLocalStorage <| encodeSavedModel newSavedModel
     in
     ( newModel
     , Cmd.batch [ cmd, saveCmd ]
     )
+
+
+equalSavedModel : SavedModel -> SavedModel -> Bool
+equalSavedModel m1 m2 =
+    IdDict.equal m1.categories m2.categories
+        && IdDict.equal m1.buckets m2.buckets
+        && (m1.toBeBudgeted == m2.toBeBudgeted)
+        && (m1.categoriesOrder == m2.categoriesOrder)
+        && IdDict.equal m1.bucketsOrder m2.bucketsOrder
 
 
 getSavedModel : Model -> SavedModel
@@ -339,6 +367,7 @@ update msg model =
                                 , categoryId = categoryId
                                 , name = bucketName
                                 , value = Money.zero
+                                , goal = Nothing
                                 }
                     , bucketsOrder =
                         model.bucketsOrder
@@ -589,6 +618,48 @@ update msg model =
             , Cmd.none
             )
 
+        SetBucketGoalInput bucketId goalString ->
+            ( { model
+                | bucketGoalInputs =
+                    model.bucketGoalInputs
+                        |> IdDict.insert bucketId goalString
+              }
+            , Cmd.none
+            )
+
+        CancelBucketGoal bucketId ->
+            ( { model | bucketGoalInputs = IdDict.remove bucketId model.bucketGoalInputs }
+            , Cmd.none
+            )
+
+        FinishBucketGoal bucketId ->
+            ( IdDict.get bucketId model.bucketGoalInputs
+                |> Maybe.map
+                    (\goalString ->
+                        { model
+                            | bucketGoalInputs = IdDict.remove bucketId model.bucketGoalInputs
+                            , buckets =
+                                if String.isEmpty goalString then
+                                    -- "" -> removing a goal
+                                    model.buckets
+                                        |> IdDict.update bucketId (Maybe.map (\bucket -> { bucket | goal = Nothing }))
+
+                                else
+                                    -- non-empty string -> setting a goal (if it's a valid number)
+                                    goalString
+                                        |> Money.fromString
+                                        |> Maybe.map
+                                            (\newGoal ->
+                                                model.buckets
+                                                    |> IdDict.update bucketId (Maybe.map (\bucket -> { bucket | goal = Just newGoal }))
+                                            )
+                                        |> Maybe.withDefault model.buckets
+                        }
+                    )
+                |> Maybe.withDefault model
+            , Cmd.none
+            )
+
 
 updateMoney : BucketType -> (Money -> Money) -> Model -> Model
 updateMoney bucketType moneyFn model =
@@ -750,6 +821,7 @@ categoryView model categoriesAndBuckets ( category, buckets ) =
                             Inline
                             [ Events.onClick <| SetRenameCategoryInput category.id category.name
                             , Attrs.class "invisible group-hover:visible"
+                            , Attrs.title "Rename category"
                             ]
                             [ Icons.pencil ]
                         ]
@@ -884,22 +956,47 @@ bucketView model categoriesAndBuckets bucket =
     in
     Html.div
         [ Attrs.class "group px-2 py-1 border bg-slate-100 flex justify-between hover:bg-sky-100" ]
-        [ case IdDict.get bucket.id model.bucketRenameInputs of
-            Nothing ->
+        [ case
+            ( IdDict.get bucket.id model.bucketRenameInputs
+            , IdDict.get bucket.id model.bucketGoalInputs
+            )
+          of
+            ( Nothing, Nothing ) ->
                 Html.div
                     [ Attrs.class "flex gap-2" ]
                     [ Html.div
                         [ Attrs.class "font-semibold" ]
                         [ Html.text bucket.name ]
+                    , case bucket.goal of
+                        Nothing ->
+                            Html.nothing
+
+                        Just goal ->
+                            Html.div
+                                [ Attrs.class "text-gray-400" ]
+                                [ Html.text <| "(goal: " ++ Money.toStringWithCurrency goal ++ ")" ]
                     , button
                         Inline
                         [ Events.onClick <| SetRenameBucketInput bucket.id bucket.name
                         , Attrs.class "invisible group-hover:visible"
+                        , Attrs.title "Rename bucket"
                         ]
                         [ Icons.pencil ]
+                    , button
+                        Inline
+                        [ Events.onClick <|
+                            SetBucketGoalInput bucket.id
+                                (bucket.goal
+                                    |> Maybe.map Money.toString
+                                    |> Maybe.withDefault ""
+                                )
+                        , Attrs.class "invisible group-hover:visible"
+                        , Attrs.title "Set a goal"
+                        ]
+                        [ Icons.flagCheckered ]
                     ]
 
-            Just newName ->
+            ( Just newName, _ ) ->
                 Html.div
                     [ Attrs.class "flex gap-1" ]
                     [ input
@@ -917,6 +1014,25 @@ bucketView model categoriesAndBuckets bucket =
                         [ Events.onClick <| FinishRenamingBucket bucket.id
                         , Attrs.disabled <| String.isEmpty newName
                         ]
+                        [ Icons.check ]
+                    ]
+
+            ( Nothing, Just goalString ) ->
+                Html.div
+                    [ Attrs.class "flex gap-1" ]
+                    [ input
+                        [ Events.onInput <| SetBucketGoalInput bucket.id
+                        , Events.onEnter <| FinishBucketGoal bucket.id
+                        , Attrs.placeholder "Goal (empty = remove)"
+                        ]
+                        goalString
+                    , button
+                        Sky
+                        [ Events.onClick <| CancelBucketGoal bucket.id ]
+                        [ Icons.xmark ]
+                    , button
+                        Sky
+                        [ Events.onClick <| FinishBucketGoal bucket.id ]
                         [ Icons.check ]
                     ]
         , Html.div
@@ -1157,19 +1273,19 @@ buttonStyle : ButtonStyle -> Attribute msg
 buttonStyle style =
     case style of
         Sky ->
-            Attrs.class "rounded border bg-sky-200 border-sky-400 text-sky-700 hover:bg-sky-300 hover:border-sky-500"
+            Attrs.class "px-2 rounded border bg-sky-200 border-sky-400 text-sky-700 hover:bg-sky-300 hover:border-sky-500"
 
         Orange ->
-            Attrs.class "rounded border bg-orange-200 border-orange-400 text-orange-700 hover:bg-orange-300 hover:border-orange-500"
+            Attrs.class "px-2 rounded border bg-orange-200 border-orange-400 text-orange-700 hover:bg-orange-300 hover:border-orange-500"
 
         Inline ->
-            Attrs.class "text-gray-400 hover:text-gray-600"
+            Attrs.class "px-1 text-gray-400 hover:text-gray-600"
 
 
 button : ButtonStyle -> List (Attribute msg) -> List (Html msg) -> Html msg
 button style attrs contents =
     Html.button
-        (Attrs.class "px-2 flex flex-row gap-1 items-center disabled:cursor-not-allowed disabled:bg-gray-200 disabled:border-gray-400 disabled:text-gray-400 disabled:hover:bg-gray-300"
+        (Attrs.class "flex flex-row gap-1 items-center disabled:cursor-not-allowed disabled:bg-gray-200 disabled:border-gray-400 disabled:text-gray-400 disabled:hover:bg-gray-300"
             :: buttonStyle style
             :: attrs
         )
@@ -1210,4 +1326,4 @@ valuePill onClick money =
             |> Maybe.map (\_ -> Attrs.title "Click to select where to take money from.")
             |> Maybe.withDefault Attrs.empty
         ]
-        [ Html.text <| Money.toString money ++ " Kč" ]
+        [ Html.text <| Money.toStringWithCurrency money ]

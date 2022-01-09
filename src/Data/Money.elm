@@ -8,6 +8,7 @@ module Data.Money exposing
     , isNegative
     , subtract
     , toString
+    , toStringWithCurrency
     , zero
     )
 
@@ -91,6 +92,11 @@ toString money =
     String.fromInt whole
         ++ "."
         ++ String.pad 2 '0' (String.fromInt cents)
+
+
+toStringWithCurrency : Money -> String
+toStringWithCurrency money =
+    toString money ++ " Kč"
 
 
 add : Money -> Money -> Money
