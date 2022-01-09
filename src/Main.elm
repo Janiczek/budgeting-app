@@ -10,6 +10,7 @@ import Data.IdSet as IdSet exposing (IdSet)
 import Data.Money as Money exposing (Money)
 import Html exposing (Attribute, Html)
 import Html.Attributes as Attrs
+import Html.Attributes.Extra as Attrs
 import Html.Events as Events
 import Html.Events.Extra as Events
 import Icons
@@ -59,7 +60,7 @@ type Msg
     | RemoveBucket BucketId
     | StartMoneyOp BucketType MoneyOp
     | SetMoneyOpInput BucketType String
-    | SelectMoneyOpTargetBucket BucketType BucketType
+    | SelectMoneyOpOtherBucket BucketType BucketType
     | FinishMoneyOp BucketType
     | CancelMoneyOp BucketType
     | FocusAttempted
@@ -70,6 +71,7 @@ type MoneyOp
     | AddM String
     | SetM String
     | MoveToM (Maybe BucketType) String
+    | TakeFromM (Maybe BucketType) String
 
 
 type BucketType
@@ -363,12 +365,15 @@ update msg model =
             , Cmd.none
             )
 
-        SelectMoneyOpTargetBucket bucketType targetBucketType ->
+        SelectMoneyOpOtherBucket bucketType otherBucketType ->
             let
                 fn op =
                     case op of
                         MoveToM _ input_ ->
-                            MoveToM (Just targetBucketType) input_
+                            MoveToM (Just otherBucketType) input_
+
+                        TakeFromM _ input_ ->
+                            TakeFromM (Just otherBucketType) input_
 
                         _ ->
                             op
@@ -395,8 +400,11 @@ update msg model =
                         SetM _ ->
                             SetM input_
 
-                        MoveToM targetBucketId _ ->
-                            MoveToM targetBucketId input_
+                        MoveToM otherBucketId _ ->
+                            MoveToM otherBucketId input_
+
+                        TakeFromM otherBucketId _ ->
+                            TakeFromM otherBucketId input_
             in
             ( case bucketType of
                 ToBeBudgeted ->
@@ -457,6 +465,20 @@ update msg model =
                                     )
                                     (Money.fromString valueString)
                                     targetBucketType
+
+                            TakeFromM sourceBucketType valueString ->
+                                Maybe.map2
+                                    (\value sourceBucketType_ ->
+                                        ( model
+                                            |> updateMoney bucketType (Money.add value)
+                                            |> updateMoney sourceBucketType_ (Money.subtract value)
+                                            |> closeMoneyOp bucketType
+                                            |> closeMoneyOp sourceBucketType_
+                                        , Cmd.none
+                                        )
+                                    )
+                                    (Money.fromString valueString)
+                                    sourceBucketType
                     )
                 |> Maybe.withDefault ( model, Cmd.none )
 
@@ -530,14 +552,24 @@ view model =
             , Html.div [ Attrs.class "flex flex-col gap-2 items-end" ]
                 [ Html.div [ Attrs.class "flex gap-2" ]
                     [ Html.text "Total value: "
-                    , valuePill totalValue
+                    , valuePill
+                        Nothing
+                        totalValue
                     ]
                 , Html.div [ Attrs.class "flex gap-2" ]
                     [ Html.text <| toBeBudgetedName ++ ": "
-                    , valuePill model.toBeBudgeted
+                    , valuePill
+                        (model.toBeBudgeted
+                            |> Money.negate
+                            |> Money.toString
+                            |> TakeFromM Nothing
+                            |> StartMoneyOp ToBeBudgeted
+                            |> Just
+                        )
+                        model.toBeBudgeted
                     , moneyOpView
                         { startMoneyOp = StartMoneyOp ToBeBudgeted
-                        , selectTargetBucket = SelectMoneyOpTargetBucket ToBeBudgeted
+                        , selectOtherBucket = SelectMoneyOpOtherBucket ToBeBudgeted
                         , setMoneyOpInput = SetMoneyOpInput ToBeBudgeted
                         , finishMoneyOp = FinishMoneyOp ToBeBudgeted
                         , cancelMoneyOp = CancelMoneyOp ToBeBudgeted
@@ -635,18 +667,18 @@ sortedCategoriesAndBuckets model =
             )
 
 
-targetBucketOptionsView :
+otherBucketOptionsView :
     { currentBucket : BucketType
-    , selectedTargetBucket : Maybe BucketType
+    , selectedOtherBucket : Maybe BucketType
     , bucketName : BucketType -> String
     }
     -> ( Category, List Bucket )
     -> List (Html msg)
-targetBucketOptionsView config ( category, buckets ) =
+otherBucketOptionsView config ( category, buckets ) =
     Html.option
         [ Attrs.disabled True ]
         [ Html.text <| "[ " ++ category.name ++ " ]" ]
-        :: List.map (.id >> NormalBucket >> targetBucketOptionView config) buckets
+        :: List.map (.id >> NormalBucket >> otherBucketOptionView config) buckets
 
 
 toBeBudgetedValue : String
@@ -677,20 +709,20 @@ bucketTypeDecoder =
             )
 
 
-targetBucketOptionView :
+otherBucketOptionView :
     { currentBucket : BucketType
-    , selectedTargetBucket : Maybe BucketType
+    , selectedOtherBucket : Maybe BucketType
     , bucketName : BucketType -> String
     }
     -> BucketType
     -> Html msg
-targetBucketOptionView config targetBucket =
+otherBucketOptionView config otherBucket =
     Html.option
-        [ Attrs.selected <| config.selectedTargetBucket == Just targetBucket
-        , Attrs.disabled <| config.currentBucket == targetBucket
-        , Attrs.value <| bucketTypeToString targetBucket
+        [ Attrs.selected <| config.selectedOtherBucket == Just otherBucket
+        , Attrs.disabled <| config.currentBucket == otherBucket
+        , Attrs.value <| bucketTypeToString otherBucket
         ]
-        [ Html.text <| config.bucketName targetBucket ]
+        [ Html.text <| config.bucketName otherBucket ]
 
 
 bucketView : Model -> List ( Category, List Bucket ) -> Bucket -> Html Msg
@@ -707,10 +739,18 @@ bucketView model categoriesAndBuckets bucket =
             [ Html.text bucket.name ]
         , Html.div
             [ Attrs.class "flex gap-2" ]
-            [ valuePill bucket.value
+            [ valuePill
+                (bucket.value
+                    |> Money.negate
+                    |> Money.toString
+                    |> TakeFromM Nothing
+                    |> StartMoneyOp (NormalBucket bucket.id)
+                    |> Just
+                )
+                bucket.value
             , moneyOpView
                 { startMoneyOp = StartMoneyOp <| NormalBucket bucket.id
-                , selectTargetBucket = SelectMoneyOpTargetBucket <| NormalBucket bucket.id
+                , selectOtherBucket = SelectMoneyOpOtherBucket <| NormalBucket bucket.id
                 , setMoneyOpInput = SetMoneyOpInput <| NormalBucket bucket.id
                 , finishMoneyOp = FinishMoneyOp <| NormalBucket bucket.id
                 , cancelMoneyOp = CancelMoneyOp <| NormalBucket bucket.id
@@ -747,7 +787,7 @@ getBucketName model bucketType =
 
 moneyOpView :
     { startMoneyOp : MoneyOp -> msg
-    , selectTargetBucket : BucketType -> msg
+    , selectOtherBucket : BucketType -> msg
     , setMoneyOpInput : String -> msg
     , finishMoneyOp : msg
     , cancelMoneyOp : msg
@@ -822,57 +862,97 @@ moneyOpView config moneyOp =
                 "Amount to set"
 
         Just (MoveToM targetBucket valueString) ->
-            let
-                targetBucketMsgDecoder : Decoder msg
-                targetBucketMsgDecoder =
-                    Decode.at [ "target", "value" ] bucketTypeDecoder
-                        |> Decode.map config.selectTargetBucket
-            in
-            Html.div
-                [ Attrs.class "flex gap-1" ]
-                [ Html.span [] [ Html.text "Moving:" ]
-                , input
-                    [ Events.onInput config.setMoneyOpInput
-                    , Events.onEnter config.finishMoneyOp
-                    , Attrs.placeholder "Amount to move"
-                    , domId config.inputDomId
-                    ]
-                    valueString
-                , Html.select
-                    [ Attrs.class "appearance-none border px-2 bg-sky-100 rounded border-sky-300 border hover:bg-sky-200 hover:border-sky-400"
-                    , Events.on "change" targetBucketMsgDecoder
-                    ]
-                    (Html.option
-                        [ Attrs.disabled True
-                        , Attrs.selected <| targetBucket == Nothing
-                        ]
-                        [ Html.text "Move where? ▼" ]
-                        :: Html.option
-                            [ Attrs.selected <| targetBucket == Just ToBeBudgeted
-                            , Attrs.disabled <| targetBucket == Just ToBeBudgeted || config.currentBucket == ToBeBudgeted
-                            , Attrs.value <| bucketTypeToString ToBeBudgeted
-                            ]
-                            [ Html.text toBeBudgetedName ]
-                        :: List.concatMap
-                            (targetBucketOptionsView
-                                { currentBucket = config.currentBucket
-                                , selectedTargetBucket = targetBucket
-                                , bucketName = config.bucketName
-                                }
-                            )
-                            config.categoriesAndBuckets
-                    )
-                , button
-                    Sky
-                    [ Events.onClick config.cancelMoneyOp ]
-                    [ Icons.xmark ]
-                , button
-                    Sky
-                    [ Events.onClick config.finishMoneyOp
-                    , Attrs.disabled <| not <| isValidNumber valueString
-                    ]
-                    [ Icons.check ]
+            moneyInputAndBucketSelectView
+                config
+                { label = "Moving:"
+                , placeholder = "Amount to move"
+                , selectPlaceholder = "Move where? ▼"
+                }
+                targetBucket
+                valueString
+
+        Just (TakeFromM sourceBucket valueString) ->
+            moneyInputAndBucketSelectView
+                config
+                { label = "Taking:"
+                , placeholder = "Amount to take"
+                , selectPlaceholder = "Take from where? ▼"
+                }
+                sourceBucket
+                valueString
+
+
+moneyInputAndBucketSelectView :
+    { startMoneyOp : MoneyOp -> msg
+    , selectOtherBucket : BucketType -> msg
+    , setMoneyOpInput : String -> msg
+    , finishMoneyOp : msg
+    , cancelMoneyOp : msg
+    , inputDomId : DomId
+    , categoriesAndBuckets : List ( Category, List Bucket )
+    , currentBucket : BucketType
+    , bucketName : BucketType -> String
+    }
+    ->
+        { label : String
+        , placeholder : String
+        , selectPlaceholder : String
+        }
+    -> Maybe BucketType
+    -> String
+    -> Html msg
+moneyInputAndBucketSelectView config labels otherBucket valueString =
+    let
+        otherBucketMsgDecoder : Decoder msg
+        otherBucketMsgDecoder =
+            Decode.at [ "target", "value" ] bucketTypeDecoder
+                |> Decode.map config.selectOtherBucket
+    in
+    Html.div
+        [ Attrs.class "flex gap-1" ]
+        [ Html.span [] [ Html.text labels.label ]
+        , input
+            [ Events.onInput config.setMoneyOpInput
+            , Events.onEnter config.finishMoneyOp
+            , Attrs.placeholder labels.placeholder
+            , domId config.inputDomId
+            ]
+            valueString
+        , Html.select
+            [ Attrs.class "appearance-none border px-2 bg-sky-100 rounded border-sky-300 border hover:bg-sky-200 hover:border-sky-400"
+            , Events.on "change" otherBucketMsgDecoder
+            ]
+            (Html.option
+                [ Attrs.disabled True
+                , Attrs.selected <| otherBucket == Nothing
                 ]
+                [ Html.text labels.selectPlaceholder ]
+                :: Html.option
+                    [ Attrs.selected <| otherBucket == Just ToBeBudgeted
+                    , Attrs.disabled <| otherBucket == Just ToBeBudgeted || config.currentBucket == ToBeBudgeted
+                    , Attrs.value <| bucketTypeToString ToBeBudgeted
+                    ]
+                    [ Html.text toBeBudgetedName ]
+                :: List.concatMap
+                    (otherBucketOptionsView
+                        { currentBucket = config.currentBucket
+                        , selectedOtherBucket = otherBucket
+                        , bucketName = config.bucketName
+                        }
+                    )
+                    config.categoriesAndBuckets
+            )
+        , button
+            Sky
+            [ Events.onClick config.cancelMoneyOp ]
+            [ Icons.xmark ]
+        , button
+            Sky
+            [ Events.onClick config.finishMoneyOp
+            , Attrs.disabled <| not <| isValidNumber valueString
+            ]
+            [ Icons.check ]
+        ]
 
 
 isValidNumber : String -> Bool
@@ -920,18 +1000,32 @@ input attrs value =
         []
 
 
-valuePill : Money -> Html msg
-valuePill money =
+valuePill : Maybe msg -> Money -> Html msg
+valuePill onNegativeClick money =
     let
-        color =
+        ( color, maybeOnClick ) =
             if Money.isNegative money then
-                Attrs.class "bg-red-200 border-red-400 text-red-600 hover:bg-red-300 hover:border-red-500"
+                ( Attrs.class "bg-red-200 border-red-400 text-red-600 hover:bg-red-300 hover:border-red-500"
+                , onNegativeClick
+                )
 
             else
-                Attrs.class "bg-lime-200 border-lime-400 text-lime-600 hover:bg-lime-300 hover:border-lime-500"
+                ( Attrs.class "bg-lime-200 border-lime-400 text-lime-600 hover:bg-lime-300 hover:border-lime-500"
+                , Nothing
+                )
     in
     Html.div
         [ Attrs.class "rounded px-2 border"
         , color
+        , maybeOnClick
+            |> Maybe.map Events.onClick
+            |> Maybe.withDefault Attrs.empty
+        , maybeOnClick
+            |> Maybe.map (\_ -> "cursor-pointer")
+            |> Maybe.withDefault ""
+            |> Attrs.class
+        , maybeOnClick
+            |> Maybe.map (\_ -> Attrs.title "Whoops! Click to select how to fix this.")
+            |> Maybe.withDefault Attrs.empty
         ]
-        [ Html.text <| Money.toString money ]
+        [ Html.text <| Money.toString money ++ " Kč" ]

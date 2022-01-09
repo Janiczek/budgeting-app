@@ -5,6 +5,7 @@ module Data.Money exposing
     , encode
     , fromString
     , isNegative
+    , negate
     , subtract
     , toString
     , zero
@@ -90,7 +91,6 @@ toString money =
     String.fromInt whole
         ++ "."
         ++ String.pad 2 '0' (String.fromInt cents)
-        ++ " Kč"
 
 
 add : Money -> Money -> Money
@@ -118,6 +118,11 @@ encode (Money int) =
 decoder : Decoder Money
 decoder =
     Decode.map Money Decode.int
+
+
+negate : Money -> Money
+negate (Money int) =
+    Money <| Basics.negate int
 
 
 isNegative : Money -> Bool
