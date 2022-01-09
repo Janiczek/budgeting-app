@@ -3759,10 +3759,12 @@ type alias Process =
     var $author$project$Main$initModel = F2(function(idSeed, savedModel) {
         return {
             bucketMoneyOps: $author$project$Data$IdDict$empty,
+            bucketRenameInputs: $author$project$Data$IdDict$empty,
             buckets: savedModel.buckets,
             bucketsOrder: savedModel.bucketsOrder,
             categories: savedModel.categories,
             categoriesOrder: savedModel.categoriesOrder,
+            categoryRenameInputs: $author$project$Data$IdDict$empty,
             idSeed: idSeed,
             newBucketInputs: $author$project$Data$IdDict$empty,
             newCategoryInput: '',
@@ -4920,7 +4922,7 @@ type alias Process =
                         });
                     }
                 }(), $elm$core$Platform$Cmd$none);
-            default:
+            case 'FinishMoneyOp':
                 var bucketType = msg.a;
                 return A2($elm$core$Maybe$withDefault, _Utils_Tuple2(model, $elm$core$Platform$Cmd$none), A2($elm$core$Maybe$andThen, function(moneyOp) {
                     var singleBucketOp = function(moneyFn) {
@@ -4968,6 +4970,52 @@ type alias Process =
                             }), $author$project$Data$Money$fromString(valueString), sourceBucketType);
                     }
                 }, A2($author$project$Main$getMoneyOp, bucketType, model)));
+            case 'SetRenameBucketInput':
+                var bucketId1 = msg.a;
+                var bucketName = msg.b;
+                return _Utils_Tuple2(_Utils_update(model, {
+                    bucketRenameInputs: A3($author$project$Data$IdDict$insert, bucketId1, bucketName, model.bucketRenameInputs)
+                }), $elm$core$Platform$Cmd$none);
+            case 'CancelRenamingBucket':
+                var bucketId1 = msg.a;
+                return _Utils_Tuple2(_Utils_update(model, {
+                    bucketRenameInputs: A2($author$project$Data$IdDict$remove, bucketId1, model.bucketRenameInputs)
+                }), $elm$core$Platform$Cmd$none);
+            case 'FinishRenamingBucket':
+                var bucketId1 = msg.a;
+                return _Utils_Tuple2(A2($elm$core$Maybe$withDefault, model, A2($elm$core$Maybe$map, function(newName) {
+                    return _Utils_update(model, {
+                        bucketRenameInputs: A2($author$project$Data$IdDict$remove, bucketId1, model.bucketRenameInputs),
+                        buckets: A3($author$project$Data$IdDict$update, bucketId1, $elm$core$Maybe$map(function(bucket) {
+                            return _Utils_update(bucket, {
+                                name: newName
+                            });
+                        }), model.buckets)
+                    });
+                }, A2($author$project$Data$IdDict$get, bucketId1, model.bucketRenameInputs))), $elm$core$Platform$Cmd$none);
+            case 'SetRenameCategoryInput':
+                var categoryId = msg.a;
+                var categoryName = msg.b;
+                return _Utils_Tuple2(_Utils_update(model, {
+                    categoryRenameInputs: A3($author$project$Data$IdDict$insert, categoryId, categoryName, model.categoryRenameInputs)
+                }), $elm$core$Platform$Cmd$none);
+            case 'CancelRenamingCategory':
+                var categoryId = msg.a;
+                return _Utils_Tuple2(_Utils_update(model, {
+                    categoryRenameInputs: A2($author$project$Data$IdDict$remove, categoryId, model.categoryRenameInputs)
+                }), $elm$core$Platform$Cmd$none);
+            default:
+                var categoryId = msg.a;
+                return _Utils_Tuple2(A2($elm$core$Maybe$withDefault, model, A2($elm$core$Maybe$map, function(newName) {
+                    return _Utils_update(model, {
+                        categories: A3($author$project$Data$IdDict$update, categoryId, $elm$core$Maybe$map(function(category) {
+                            return _Utils_update(category, {
+                                name: newName
+                            });
+                        }), model.categories),
+                        categoryRenameInputs: A2($author$project$Data$IdDict$remove, categoryId, model.categoryRenameInputs)
+                    });
+                }, A2($author$project$Data$IdDict$get, categoryId, model.categoryRenameInputs))), $elm$core$Platform$Cmd$none);
         }
     });
     var $author$project$Main$update_ = F2(function(msg, model) {
@@ -5045,12 +5093,18 @@ type alias Process =
         return A2(_VirtualDom_property, key, $elm$json$Json$Encode$string(string));
     });
     var $elm$html$Html$Attributes$class = $elm$html$Html$Attributes$stringProperty('className');
-    var $author$project$Main$buttonColor = function(color) {
-        if (color.$ === 'Sky') return $elm$html$Html$Attributes$class('bg-sky-200 border-sky-400 text-sky-700 hover:bg-sky-300 hover:border-sky-500');
-        else return $elm$html$Html$Attributes$class('bg-orange-200 border-orange-400 text-orange-700 hover:bg-orange-300 hover:border-orange-500');
+    var $author$project$Main$buttonStyle = function(style) {
+        switch(style.$){
+            case 'Sky':
+                return $elm$html$Html$Attributes$class('rounded border bg-sky-200 border-sky-400 text-sky-700 hover:bg-sky-300 hover:border-sky-500');
+            case 'Orange':
+                return $elm$html$Html$Attributes$class('rounded border bg-orange-200 border-orange-400 text-orange-700 hover:bg-orange-300 hover:border-orange-500');
+            default:
+                return $elm$html$Html$Attributes$class('text-gray-400 hover:text-gray-600');
+        }
     };
-    var $author$project$Main$button = F3(function(color, attrs, contents) {
-        return A2($elm$html$Html$button, A2($elm$core$List$cons, $elm$html$Html$Attributes$class('border px-2 rounded border flex flex-row gap-1 items-center disabled:cursor-not-allowed disabled:bg-gray-200 disabled:border-gray-400 disabled:text-gray-400 disabled:hover:bg-gray-300'), A2($elm$core$List$cons, $author$project$Main$buttonColor(color), attrs)), contents);
+    var $author$project$Main$button = F3(function(style, attrs, contents) {
+        return A2($elm$html$Html$button, A2($elm$core$List$cons, $elm$html$Html$Attributes$class('px-2 flex flex-row gap-1 items-center disabled:cursor-not-allowed disabled:bg-gray-200 disabled:border-gray-400 disabled:text-gray-400 disabled:hover:bg-gray-300'), A2($elm$core$List$cons, $author$project$Main$buttonStyle(style), attrs)), contents);
     });
     var $author$project$Main$AddBucket = F2(function(a, b) {
         return {
@@ -5059,6 +5113,21 @@ type alias Process =
             b: b
         };
     });
+    var $author$project$Main$CancelRenamingCategory = function(a) {
+        return {
+            $: 'CancelRenamingCategory',
+            a: a
+        };
+    };
+    var $author$project$Main$FinishRenamingCategory = function(a) {
+        return {
+            $: 'FinishRenamingCategory',
+            a: a
+        };
+    };
+    var $author$project$Main$Inline = {
+        $: 'Inline'
+    };
     var $author$project$Main$RemoveCategory = function(a) {
         return {
             $: 'RemoveCategory',
@@ -5072,6 +5141,25 @@ type alias Process =
             b: b
         };
     });
+    var $author$project$Main$SetRenameCategoryInput = F2(function(a, b) {
+        return {
+            $: 'SetRenameCategoryInput',
+            a: a,
+            b: b
+        };
+    });
+    var $author$project$Main$CancelRenamingBucket = function(a) {
+        return {
+            $: 'CancelRenamingBucket',
+            a: a
+        };
+    };
+    var $author$project$Main$FinishRenamingBucket = function(a) {
+        return {
+            $: 'FinishRenamingBucket',
+            a: a
+        };
+    };
     var $author$project$Main$NormalBucket = function(a) {
         return {
             $: 'NormalBucket',
@@ -5084,20 +5172,12 @@ type alias Process =
             a: a
         };
     };
-    var $author$project$Data$Money$complementToPositive = function(_v0) {
-        var _int = _v0.a;
-        return $author$project$Data$Money$Money(A2($elm$core$Basics$max, 0, -_int));
-    };
-    var $elm$html$Html$div = _VirtualDom_node('div');
-    var $author$project$Main$toBeBudgetedName = 'To be budgeted';
-    var $author$project$Main$getBucketName = F2(function(model, bucketType) {
-        if (bucketType.$ === 'ToBeBudgeted') return $author$project$Main$toBeBudgetedName;
-        else {
-            var bucketId = bucketType.a;
-            return A2($elm$core$Maybe$withDefault, 'BUG: can\'t find bucket name!', A2($elm$core$Maybe$map, function($) {
-                return $.name;
-            }, A2($author$project$Data$IdDict$get, bucketId, model.buckets)));
-        }
+    var $author$project$Main$SetRenameBucketInput = F2(function(a, b) {
+        return {
+            $: 'SetRenameBucketInput',
+            a: a,
+            b: b
+        };
     });
     var $elm$virtual_dom$VirtualDom$attribute = F2(function(key, value) {
         return A2(_VirtualDom_attribute, _VirtualDom_noOnOrFormAction(key), _VirtualDom_noJavaScriptOrHtmlUri(value));
@@ -5126,21 +5206,36 @@ type alias Process =
             ]), _List_Nil)
         ]));
     });
-    var $author$project$Icons$arrowRight = A2($author$project$Icons$fontAwesomeIcon, '0 0 448 512', 'M438.6 278.6l-160 160C272.4 444.9 264.2 448 256 448s-16.38-3.125-22.62-9.375c-12.5-12.5-12.5-32.75 0-45.25L338.8 288H32C14.33 288 .0016 273.7 .0016 256S14.33 224 32 224h306.8l-105.4-105.4c-12.5-12.5-12.5-32.75 0-45.25s32.75-12.5 45.25 0l160 160C451.1 245.9 451.1 266.1 438.6 278.6z');
     var $author$project$Icons$check = A2($author$project$Icons$fontAwesomeIcon, '0 0 512 512', 'M480 128c0 8.188-3.125 16.38-9.375 22.62l-256 256C208.4 412.9 200.2 416 192 416s-16.38-3.125-22.62-9.375l-128-128C35.13 272.4 32 264.2 32 256c0-18.28 14.95-32 32-32c8.188 0 16.38 3.125 22.62 9.375L192 338.8l233.4-233.4C431.6 99.13 439.8 96 448 96C465.1 96 480 109.7 480 128z');
+    var $author$project$Data$Money$complementToPositive = function(_v0) {
+        var _int = _v0.a;
+        return $author$project$Data$Money$Money(A2($elm$core$Basics$max, 0, -_int));
+    };
     var $elm$json$Json$Encode$bool = _Json_wrap;
     var $elm$html$Html$Attributes$boolProperty = F2(function(key, bool) {
         return A2(_VirtualDom_property, key, $elm$json$Json$Encode$bool(bool));
     });
     var $elm$html$Html$Attributes$disabled = $elm$html$Html$Attributes$boolProperty('disabled');
-    var $elm$html$Html$Attributes$id = $elm$html$Html$Attributes$stringProperty('id');
-    var $author$project$Main$domId = A2($elm$core$Basics$composeL, $elm$html$Html$Attributes$id, $author$project$Main$domIdToString);
-    var $author$project$Icons$equals = A2($author$project$Icons$fontAwesomeIcon, '0 0 448 512', 'M48 192h352c17.69 0 32-14.32 32-32s-14.31-31.1-32-31.1h-352c-17.69 0-32 14.31-32 31.1S30.31 192 48 192zM400 320h-352c-17.69 0-32 14.31-32 31.1s14.31 32 32 32h352c17.69 0 32-14.32 32-32S417.7 320 400 320z');
+    var $elm$html$Html$div = _VirtualDom_node('div');
+    var $author$project$Main$toBeBudgetedName = 'To be budgeted';
+    var $author$project$Main$getBucketName = F2(function(model, bucketType) {
+        if (bucketType.$ === 'ToBeBudgeted') return $author$project$Main$toBeBudgetedName;
+        else {
+            var bucketId = bucketType.a;
+            return A2($elm$core$Maybe$withDefault, 'BUG: can\'t find bucket name!', A2($elm$core$Maybe$map, function($) {
+                return $.name;
+            }, A2($author$project$Data$IdDict$get, bucketId, model.buckets)));
+        }
+    });
     var $elm$html$Html$input = _VirtualDom_node('input');
     var $elm$html$Html$Attributes$value = $elm$html$Html$Attributes$stringProperty('value');
     var $author$project$Main$input = F2(function(attrs, value) {
         return A2($elm$html$Html$input, A2($elm$core$List$cons, $elm$html$Html$Attributes$value(value), A2($elm$core$List$cons, $elm$html$Html$Attributes$class('border px-2 bg-sky-100 rounded border-sky-300 border hover:bg-sky-200 hover:border-sky-400'), attrs)), _List_Nil);
     });
+    var $author$project$Icons$arrowRight = A2($author$project$Icons$fontAwesomeIcon, '0 0 448 512', 'M438.6 278.6l-160 160C272.4 444.9 264.2 448 256 448s-16.38-3.125-22.62-9.375c-12.5-12.5-12.5-32.75 0-45.25L338.8 288H32C14.33 288 .0016 273.7 .0016 256S14.33 224 32 224h306.8l-105.4-105.4c-12.5-12.5-12.5-32.75 0-45.25s32.75-12.5 45.25 0l160 160C451.1 245.9 451.1 266.1 438.6 278.6z');
+    var $elm$html$Html$Attributes$id = $elm$html$Html$Attributes$stringProperty('id');
+    var $author$project$Main$domId = A2($elm$core$Basics$composeL, $elm$html$Html$Attributes$id, $author$project$Main$domIdToString);
+    var $author$project$Icons$equals = A2($author$project$Icons$fontAwesomeIcon, '0 0 448 512', 'M48 192h352c17.69 0 32-14.32 32-32s-14.31-31.1-32-31.1h-352c-17.69 0-32 14.31-32 31.1S30.31 192 48 192zM400 320h-352c-17.69 0-32 14.31-32 31.1s14.31 32 32 32h352c17.69 0 32-14.32 32-32S417.7 320 400 320z');
     var $elm$core$Basics$modBy = _Basics_modBy;
     var $author$project$Data$Money$toParts = function(_v0) {
         var n = _v0.a;
@@ -5373,6 +5468,7 @@ type alias Process =
                 }, sourceBucket, valueString1);
         }
     });
+    var $author$project$Icons$pencil = A2($author$project$Icons$fontAwesomeIcon, '0 0 512 512', 'M497.9 74.16l-60.09-60.1c-18.75-18.75-49.19-18.75-67.93 0L313.4 70.61l127.1 128l56.56-56.55C516.7 123.3 516.7 92.91 497.9 74.16zM31.04 352.1c-2.234 2.234-3.756 5.078-4.377 8.176l-26.34 131.7C-1.703 502.1 6.156 512 15.95 512c1.049 0 2.117-.1035 3.199-.3203l131.7-26.34c3.098-.6191 5.941-2.141 8.176-4.373l259.7-259.7l-128-128L31.04 352.1zM131.9 440.2l-75.14 15.03l15.03-75.15L96 355.9V416h60.12L131.9 440.2z');
     var $elm$core$String$pad = F3(function(n, _char, string) {
         var half = (n - $elm$core$String$length(string)) / 2;
         return _Utils_ap(A2($elm$core$String$repeat, $elm$core$Basics$ceiling(half), $elm$core$String$fromChar(_char)), _Utils_ap(string, A2($elm$core$String$repeat, $elm$core$Basics$floor(half), $elm$core$String$fromChar(_char))));
@@ -5409,11 +5505,46 @@ type alias Process =
         return A2($elm$html$Html$div, _List_fromArray([
             $elm$html$Html$Attributes$class('px-2 py-1 border bg-slate-100 flex justify-between hover:bg-sky-100')
         ]), _List_fromArray([
-            A2($elm$html$Html$div, _List_fromArray([
-                $elm$html$Html$Attributes$class('font-semibold')
-            ]), _List_fromArray([
-                $elm$html$Html$text(bucket.name)
-            ])),
+            function() {
+                var _v0 = A2($author$project$Data$IdDict$get, bucket.id, model.bucketRenameInputs);
+                if (_v0.$ === 'Nothing') return A2($elm$html$Html$div, _List_fromArray([
+                    $elm$html$Html$Attributes$class('flex gap-2')
+                ]), _List_fromArray([
+                    A2($elm$html$Html$div, _List_fromArray([
+                        $elm$html$Html$Attributes$class('font-semibold')
+                    ]), _List_fromArray([
+                        $elm$html$Html$text(bucket.name)
+                    ])),
+                    A3($author$project$Main$button, $author$project$Main$Inline, _List_fromArray([
+                        $elm$html$Html$Events$onClick(A2($author$project$Main$SetRenameBucketInput, bucket.id, bucket.name))
+                    ]), _List_fromArray([
+                        $author$project$Icons$pencil
+                    ]))
+                ]));
+                else {
+                    var newName = _v0.a;
+                    return A2($elm$html$Html$div, _List_fromArray([
+                        $elm$html$Html$Attributes$class('flex gap-1')
+                    ]), _List_fromArray([
+                        A2($author$project$Main$input, _List_fromArray([
+                            $elm$html$Html$Events$onInput($author$project$Main$SetRenameBucketInput(bucket.id)),
+                            $elm_community$html_extra$Html$Events$Extra$onEnter($author$project$Main$FinishRenamingBucket(bucket.id)),
+                            $elm$html$Html$Attributes$placeholder('New bucket name')
+                        ]), newName),
+                        A3($author$project$Main$button, $author$project$Main$Sky, _List_fromArray([
+                            $elm$html$Html$Events$onClick($author$project$Main$CancelRenamingBucket(bucket.id))
+                        ]), _List_fromArray([
+                            $author$project$Icons$xmark
+                        ])),
+                        A3($author$project$Main$button, $author$project$Main$Sky, _List_fromArray([
+                            $elm$html$Html$Events$onClick($author$project$Main$FinishRenamingBucket(bucket.id)),
+                            $elm$html$Html$Attributes$disabled($elm$core$String$isEmpty(newName))
+                        ]), _List_fromArray([
+                            $author$project$Icons$check
+                        ]))
+                    ]));
+                }
+            }(),
             A2($elm$html$Html$div, _List_fromArray([
                 $elm$html$Html$Attributes$class('flex gap-2')
             ]), _List_fromArray([
@@ -5448,11 +5579,46 @@ type alias Process =
             A2($elm$html$Html$div, _List_fromArray([
                 $elm$html$Html$Attributes$class('flex justify-between')
             ]), _List_fromArray([
-                A2($elm$html$Html$div, _List_fromArray([
-                    $elm$html$Html$Attributes$class('font-semibold')
-                ]), _List_fromArray([
-                    $elm$html$Html$text(category.name)
-                ])),
+                function() {
+                    var _v1 = A2($author$project$Data$IdDict$get, category.id, model.categoryRenameInputs);
+                    if (_v1.$ === 'Nothing') return A2($elm$html$Html$div, _List_fromArray([
+                        $elm$html$Html$Attributes$class('flex gap-2')
+                    ]), _List_fromArray([
+                        A2($elm$html$Html$div, _List_fromArray([
+                            $elm$html$Html$Attributes$class('font-semibold')
+                        ]), _List_fromArray([
+                            $elm$html$Html$text(category.name)
+                        ])),
+                        A3($author$project$Main$button, $author$project$Main$Inline, _List_fromArray([
+                            $elm$html$Html$Events$onClick(A2($author$project$Main$SetRenameCategoryInput, category.id, category.name))
+                        ]), _List_fromArray([
+                            $author$project$Icons$pencil
+                        ]))
+                    ]));
+                    else {
+                        var newName = _v1.a;
+                        return A2($elm$html$Html$div, _List_fromArray([
+                            $elm$html$Html$Attributes$class('flex gap-1')
+                        ]), _List_fromArray([
+                            A2($author$project$Main$input, _List_fromArray([
+                                $elm$html$Html$Events$onInput($author$project$Main$SetRenameCategoryInput(category.id)),
+                                $elm_community$html_extra$Html$Events$Extra$onEnter($author$project$Main$FinishRenamingCategory(category.id)),
+                                $elm$html$Html$Attributes$placeholder('New category name')
+                            ]), newName),
+                            A3($author$project$Main$button, $author$project$Main$Sky, _List_fromArray([
+                                $elm$html$Html$Events$onClick($author$project$Main$CancelRenamingCategory(category.id))
+                            ]), _List_fromArray([
+                                $author$project$Icons$xmark
+                            ])),
+                            A3($author$project$Main$button, $author$project$Main$Sky, _List_fromArray([
+                                $elm$html$Html$Events$onClick($author$project$Main$FinishRenamingCategory(category.id)),
+                                $elm$html$Html$Attributes$disabled($elm$core$String$isEmpty(newName))
+                            ]), _List_fromArray([
+                                $author$project$Icons$check
+                            ]))
+                        ]));
+                    }
+                }(),
                 A2($elm$html$Html$div, _List_fromArray([
                     $elm$html$Html$Attributes$class('flex gap-1')
                 ]), _List_fromArray([
@@ -5620,4 +5786,4 @@ $d3d62a653380dacf$var$app.ports.saveToLocalStorage.subscribe((string)=>{
 });
 
 
-//# sourceMappingURL=index.7e095dfe.js.map
+//# sourceMappingURL=index.6143acc4.js.map
