@@ -648,7 +648,7 @@ view model =
         [ Html.div
             [ Attrs.class "flex justify-between" ]
             [ Html.span
-                [ Attrs.class "font-bold" ]
+                [ Attrs.class "text-xl font-bold" ]
                 [ Html.text "Budgeting" ]
             , Html.div [ Attrs.class "flex flex-col gap-2 items-end" ]
                 [ Html.div [ Attrs.class "flex gap-2" ]
