@@ -3894,6 +3894,13 @@ type alias Process =
             a: a
         };
     };
+    var $author$project$Main$TakeFromM = F2(function(a, b) {
+        return {
+            $: 'TakeFromM',
+            a: a,
+            b: b
+        };
+    });
     var $author$project$Data$Money$add = F2(function(_v0, _v1) {
         var int1 = _v0.a;
         var int2 = _v1.a;
@@ -4668,14 +4675,20 @@ type alias Process =
             case 'CancelMoneyOp':
                 var bucketType = msg.a;
                 return _Utils_Tuple2(A2($author$project$Main$closeMoneyOp, bucketType, model), $elm$core$Platform$Cmd$none);
-            case 'SelectMoneyOpTargetBucket':
+            case 'SelectMoneyOpOtherBucket':
                 var bucketType = msg.a;
-                var targetBucketType1 = msg.b;
+                var otherBucketType = msg.b;
                 var fn = function(op) {
-                    if (op.$ === 'MoveToM') {
-                        var input_ = op.b;
-                        return A2($author$project$Main$MoveToM, $elm$core$Maybe$Just(targetBucketType1), input_);
-                    } else return op;
+                    switch(op.$){
+                        case 'MoveToM':
+                            var input_ = op.b;
+                            return A2($author$project$Main$MoveToM, $elm$core$Maybe$Just(otherBucketType), input_);
+                        case 'TakeFromM':
+                            var input_ = op.b;
+                            return A2($author$project$Main$TakeFromM, $elm$core$Maybe$Just(otherBucketType), input_);
+                        default:
+                            return op;
+                    }
                 };
                 return _Utils_Tuple2(function() {
                     if (bucketType.$ === 'ToBeBudgeted') return _Utils_update(model, {
@@ -4699,9 +4712,12 @@ type alias Process =
                             return $author$project$Main$SubtractM(input_1);
                         case 'SetM':
                             return $author$project$Main$SetM(input_1);
+                        case 'MoveToM':
+                            var otherBucketId = op.a;
+                            return A2($author$project$Main$MoveToM, otherBucketId, input_1);
                         default:
-                            var targetBucketId = op.a;
-                            return A2($author$project$Main$MoveToM, targetBucketId, input_1);
+                            var otherBucketId = op.a;
+                            return A2($author$project$Main$TakeFromM, otherBucketId, input_1);
                     }
                 };
                 return _Utils_Tuple2(function() {
@@ -4749,12 +4765,18 @@ type alias Process =
                             return A2($elm$core$Maybe$map, A2($elm$core$Basics$composeL, singleBucketOp, F2(function(value, _v13) {
                                 return value;
                             })), $author$project$Data$Money$fromString(valueString));
-                        default:
+                        case 'MoveToM':
                             var targetBucketType = moneyOp.a;
                             var valueString = moneyOp.b;
                             return A3($elm$core$Maybe$map2, F2(function(value, targetBucketType_) {
                                 return _Utils_Tuple2(A2($author$project$Main$closeMoneyOp, targetBucketType_, A2($author$project$Main$closeMoneyOp, bucketType, A3($author$project$Main$updateMoney, targetBucketType_, $author$project$Data$Money$add(value), A3($author$project$Main$updateMoney, bucketType, $author$project$Data$Money$subtract(value), model)))), $elm$core$Platform$Cmd$none);
                             }), $author$project$Data$Money$fromString(valueString), targetBucketType);
+                        default:
+                            var sourceBucketType = moneyOp.a;
+                            var valueString = moneyOp.b;
+                            return A3($elm$core$Maybe$map2, F2(function(value, sourceBucketType_) {
+                                return _Utils_Tuple2(A2($author$project$Main$closeMoneyOp, sourceBucketType_, A2($author$project$Main$closeMoneyOp, bucketType, A3($author$project$Main$updateMoney, sourceBucketType_, $author$project$Data$Money$subtract(value), A3($author$project$Main$updateMoney, bucketType, $author$project$Data$Money$add(value), model)))), $elm$core$Platform$Cmd$none);
+                            }), $author$project$Data$Money$fromString(valueString), sourceBucketType);
                     }
                 }, A2($author$project$Main$getMoneyOp, bucketType, model)));
         }
@@ -4787,9 +4809,9 @@ type alias Process =
             a: a
         };
     };
-    var $author$project$Main$SelectMoneyOpTargetBucket = F2(function(a, b) {
+    var $author$project$Main$SelectMoneyOpOtherBucket = F2(function(a, b) {
         return {
-            $: 'SelectMoneyOpTargetBucket',
+            $: 'SelectMoneyOpOtherBucket',
             a: a,
             b: b
         };
@@ -4906,23 +4928,7 @@ type alias Process =
         ]));
     });
     var $author$project$Icons$arrowRight = A2($author$project$Icons$fontAwesomeIcon, '0 0 448 512', 'M438.6 278.6l-160 160C272.4 444.9 264.2 448 256 448s-16.38-3.125-22.62-9.375c-12.5-12.5-12.5-32.75 0-45.25L338.8 288H32C14.33 288 .0016 273.7 .0016 256S14.33 224 32 224h306.8l-105.4-105.4c-12.5-12.5-12.5-32.75 0-45.25s32.75-12.5 45.25 0l160 160C451.1 245.9 451.1 266.1 438.6 278.6z');
-    var $elm$json$Json$Decode$at = F2(function(fields, decoder) {
-        return A3($elm$core$List$foldr, $elm$json$Json$Decode$field, decoder, fields);
-    });
-    var $author$project$Main$bucketTypeDecoder = A2($elm$json$Json$Decode$map, function(value) {
-        return _Utils_eq(value, $author$project$Main$toBeBudgetedValue) ? $author$project$Main$ToBeBudgeted : $author$project$Main$NormalBucket($author$project$Data$Id$fromString(value));
-    }, $elm$json$Json$Decode$string);
     var $author$project$Icons$check = A2($author$project$Icons$fontAwesomeIcon, '0 0 512 512', 'M480 128c0 8.188-3.125 16.38-9.375 22.62l-256 256C208.4 412.9 200.2 416 192 416s-16.38-3.125-22.62-9.375l-128-128C35.13 272.4 32 264.2 32 256c0-18.28 14.95-32 32-32c8.188 0 16.38 3.125 22.62 9.375L192 338.8l233.4-233.4C431.6 99.13 439.8 96 448 96C465.1 96 480 109.7 480 128z');
-    var $elm$core$List$append = F2(function(xs, ys) {
-        if (!ys.b) return xs;
-        else return A3($elm$core$List$foldr, $elm$core$List$cons, ys, xs);
-    });
-    var $elm$core$List$concat = function(lists) {
-        return A3($elm$core$List$foldr, $elm$core$List$append, _List_Nil, lists);
-    };
-    var $elm$core$List$concatMap = F2(function(f, list) {
-        return $elm$core$List$concat(A2($elm$core$List$map, f, list));
-    });
     var $elm$json$Json$Encode$bool = _Json_wrap;
     var $elm$html$Html$Attributes$boolProperty = F2(function(key, bool) {
         return A2(_VirtualDom_property, key, $elm$json$Json$Encode$bool(bool));
@@ -4954,6 +4960,22 @@ type alias Process =
         } else return false;
     };
     var $author$project$Icons$minus = A2($author$project$Icons$fontAwesomeIcon, '0 0 448 512', 'M400 288h-352c-17.69 0-32-14.32-32-32.01s14.31-31.99 32-31.99h352c17.69 0 32 14.3 32 31.99S417.7 288 400 288z');
+    var $elm$json$Json$Decode$at = F2(function(fields, decoder) {
+        return A3($elm$core$List$foldr, $elm$json$Json$Decode$field, decoder, fields);
+    });
+    var $author$project$Main$bucketTypeDecoder = A2($elm$json$Json$Decode$map, function(value) {
+        return _Utils_eq(value, $author$project$Main$toBeBudgetedValue) ? $author$project$Main$ToBeBudgeted : $author$project$Main$NormalBucket($author$project$Data$Id$fromString(value));
+    }, $elm$json$Json$Decode$string);
+    var $elm$core$List$append = F2(function(xs, ys) {
+        if (!ys.b) return xs;
+        else return A3($elm$core$List$foldr, $elm$core$List$cons, ys, xs);
+    });
+    var $elm$core$List$concat = function(lists) {
+        return A3($elm$core$List$foldr, $elm$core$List$append, _List_Nil, lists);
+    };
+    var $elm$core$List$concatMap = F2(function(f, list) {
+        return $elm$core$List$concat(A2($elm$core$List$map, f, list));
+    });
     var $elm$virtual_dom$VirtualDom$Normal = function(a) {
         return {
             $: 'Normal',
@@ -4994,23 +5016,19 @@ type alias Process =
         return A2($elm$html$Html$Events$stopPropagationOn, 'input', A2($elm$json$Json$Decode$map, $elm$html$Html$Events$alwaysStop, A2($elm$json$Json$Decode$map, tagger, $elm$html$Html$Events$targetValue)));
     };
     var $elm$html$Html$option = _VirtualDom_node('option');
-    var $elm$html$Html$Attributes$placeholder = $elm$html$Html$Attributes$stringProperty('placeholder');
-    var $author$project$Icons$plus = A2($author$project$Icons$fontAwesomeIcon, '0 0 448 512', 'M432 256c0 17.69-14.33 32.01-32 32.01H256v144c0 17.69-14.33 31.99-32 31.99s-32-14.3-32-31.99v-144H48c-17.67 0-32-14.32-32-32.01s14.33-31.99 32-31.99H192v-144c0-17.69 14.33-32.01 32-32.01s32 14.32 32 32.01v144h144C417.7 224 432 238.3 432 256z');
-    var $elm$html$Html$select = _VirtualDom_node('select');
     var $elm$html$Html$Attributes$selected = $elm$html$Html$Attributes$boolProperty('selected');
-    var $elm$html$Html$span = _VirtualDom_node('span');
     var $elm$virtual_dom$VirtualDom$text = _VirtualDom_text;
     var $elm$html$Html$text = $elm$virtual_dom$VirtualDom$text;
-    var $author$project$Main$targetBucketOptionView = F2(function(config, targetBucket) {
+    var $author$project$Main$otherBucketOptionView = F2(function(config, otherBucket) {
         return A2($elm$html$Html$option, _List_fromArray([
-            $elm$html$Html$Attributes$selected(_Utils_eq(config.selectedTargetBucket, $elm$core$Maybe$Just(targetBucket))),
-            $elm$html$Html$Attributes$disabled(_Utils_eq(config.currentBucket, targetBucket)),
-            $elm$html$Html$Attributes$value($author$project$Main$bucketTypeToString(targetBucket))
+            $elm$html$Html$Attributes$selected(_Utils_eq(config.selectedOtherBucket, $elm$core$Maybe$Just(otherBucket))),
+            $elm$html$Html$Attributes$disabled(_Utils_eq(config.currentBucket, otherBucket)),
+            $elm$html$Html$Attributes$value($author$project$Main$bucketTypeToString(otherBucket))
         ]), _List_fromArray([
-            $elm$html$Html$text(config.bucketName(targetBucket))
+            $elm$html$Html$text(config.bucketName(otherBucket))
         ]));
     });
-    var $author$project$Main$targetBucketOptionsView = F2(function(config, _v0) {
+    var $author$project$Main$otherBucketOptionsView = F2(function(config, _v0) {
         var category = _v0.a;
         var buckets = _v0.b;
         return A2($elm$core$List$cons, A2($elm$html$Html$option, _List_fromArray([
@@ -5019,9 +5037,62 @@ type alias Process =
             $elm$html$Html$text('[ ' + (category.name + ' ]'))
         ])), A2($elm$core$List$map, A2($elm$core$Basics$composeR, function($) {
             return $.id;
-        }, A2($elm$core$Basics$composeR, $author$project$Main$NormalBucket, $author$project$Main$targetBucketOptionView(config))), buckets));
+        }, A2($elm$core$Basics$composeR, $author$project$Main$NormalBucket, $author$project$Main$otherBucketOptionView(config))), buckets));
     });
+    var $elm$html$Html$Attributes$placeholder = $elm$html$Html$Attributes$stringProperty('placeholder');
+    var $elm$html$Html$select = _VirtualDom_node('select');
+    var $elm$html$Html$span = _VirtualDom_node('span');
     var $author$project$Icons$xmark = A2($author$project$Icons$fontAwesomeIcon, '0 0 320 512', 'M310.6 361.4c12.5 12.5 12.5 32.75 0 45.25C304.4 412.9 296.2 416 288 416s-16.38-3.125-22.62-9.375L160 301.3L54.63 406.6C48.38 412.9 40.19 416 32 416S15.63 412.9 9.375 406.6c-12.5-12.5-12.5-32.75 0-45.25l105.4-105.4L9.375 150.6c-12.5-12.5-12.5-32.75 0-45.25s32.75-12.5 45.25 0L160 210.8l105.4-105.4c12.5-12.5 32.75-12.5 45.25 0s12.5 32.75 0 45.25l-105.4 105.4L310.6 361.4z');
+    var $author$project$Main$moneyInputAndBucketSelectView = F4(function(config, labels, otherBucket, valueString) {
+        var otherBucketMsgDecoder = A2($elm$json$Json$Decode$map, config.selectOtherBucket, A2($elm$json$Json$Decode$at, _List_fromArray([
+            'target',
+            'value'
+        ]), $author$project$Main$bucketTypeDecoder));
+        return A2($elm$html$Html$div, _List_fromArray([
+            $elm$html$Html$Attributes$class('flex gap-1')
+        ]), _List_fromArray([
+            A2($elm$html$Html$span, _List_Nil, _List_fromArray([
+                $elm$html$Html$text(labels.label)
+            ])),
+            A2($author$project$Main$input, _List_fromArray([
+                $elm$html$Html$Events$onInput(config.setMoneyOpInput),
+                $elm_community$html_extra$Html$Events$Extra$onEnter(config.finishMoneyOp),
+                $elm$html$Html$Attributes$placeholder(labels.placeholder),
+                $author$project$Main$domId(config.inputDomId)
+            ]), valueString),
+            A2($elm$html$Html$select, _List_fromArray([
+                $elm$html$Html$Attributes$class('appearance-none border px-2 bg-sky-100 rounded border-sky-300 border hover:bg-sky-200 hover:border-sky-400'),
+                A2($elm$html$Html$Events$on, 'change', otherBucketMsgDecoder)
+            ]), A2($elm$core$List$cons, A2($elm$html$Html$option, _List_fromArray([
+                $elm$html$Html$Attributes$disabled(true),
+                $elm$html$Html$Attributes$selected(_Utils_eq(otherBucket, $elm$core$Maybe$Nothing))
+            ]), _List_fromArray([
+                $elm$html$Html$text(labels.selectPlaceholder)
+            ])), A2($elm$core$List$cons, A2($elm$html$Html$option, _List_fromArray([
+                $elm$html$Html$Attributes$selected(_Utils_eq(otherBucket, $elm$core$Maybe$Just($author$project$Main$ToBeBudgeted))),
+                $elm$html$Html$Attributes$disabled(_Utils_eq(otherBucket, $elm$core$Maybe$Just($author$project$Main$ToBeBudgeted)) || _Utils_eq(config.currentBucket, $author$project$Main$ToBeBudgeted)),
+                $elm$html$Html$Attributes$value($author$project$Main$bucketTypeToString($author$project$Main$ToBeBudgeted))
+            ]), _List_fromArray([
+                $elm$html$Html$text($author$project$Main$toBeBudgetedName)
+            ])), A2($elm$core$List$concatMap, $author$project$Main$otherBucketOptionsView({
+                bucketName: config.bucketName,
+                currentBucket: config.currentBucket,
+                selectedOtherBucket: otherBucket
+            }), config.categoriesAndBuckets)))),
+            A3($author$project$Main$button, $author$project$Main$Sky, _List_fromArray([
+                $elm$html$Html$Events$onClick(config.cancelMoneyOp)
+            ]), _List_fromArray([
+                $author$project$Icons$xmark
+            ])),
+            A3($author$project$Main$button, $author$project$Main$Sky, _List_fromArray([
+                $elm$html$Html$Events$onClick(config.finishMoneyOp),
+                $elm$html$Html$Attributes$disabled(!$author$project$Main$isValidNumber(valueString))
+            ]), _List_fromArray([
+                $author$project$Icons$check
+            ]))
+        ]));
+    });
+    var $author$project$Icons$plus = A2($author$project$Icons$fontAwesomeIcon, '0 0 448 512', 'M432 256c0 17.69-14.33 32.01-32 32.01H256v144c0 17.69-14.33 31.99-32 31.99s-32-14.3-32-31.99v-144H48c-17.67 0-32-14.32-32-32.01s14.33-31.99 32-31.99H192v-144c0-17.69 14.33-32.01 32-32.01s32 14.32 32 32.01v144h144C417.7 224 432 238.3 432 256z');
     var $author$project$Main$moneyOpView = F2(function(config, moneyOp) {
         var singleBucketView = F3(function(valueString, label, placeholder) {
             return A2($elm$html$Html$div, _List_fromArray([
@@ -5083,59 +5154,30 @@ type alias Process =
             case 'SetM':
                 var valueString1 = moneyOp.a.a;
                 return A3(singleBucketView, valueString1, 'Setting to:', 'Amount to set');
-            default:
+            case 'MoveToM':
                 var _v1 = moneyOp.a;
                 var targetBucket = _v1.a;
                 var valueString1 = _v1.b;
-                var targetBucketMsgDecoder = A2($elm$json$Json$Decode$map, config.selectTargetBucket, A2($elm$json$Json$Decode$at, _List_fromArray([
-                    'target',
-                    'value'
-                ]), $author$project$Main$bucketTypeDecoder));
-                return A2($elm$html$Html$div, _List_fromArray([
-                    $elm$html$Html$Attributes$class('flex gap-1')
-                ]), _List_fromArray([
-                    A2($elm$html$Html$span, _List_Nil, _List_fromArray([
-                        $elm$html$Html$text('Moving:')
-                    ])),
-                    A2($author$project$Main$input, _List_fromArray([
-                        $elm$html$Html$Events$onInput(config.setMoneyOpInput),
-                        $elm_community$html_extra$Html$Events$Extra$onEnter(config.finishMoneyOp),
-                        $elm$html$Html$Attributes$placeholder('Amount to move'),
-                        $author$project$Main$domId(config.inputDomId)
-                    ]), valueString1),
-                    A2($elm$html$Html$select, _List_fromArray([
-                        $elm$html$Html$Attributes$class('appearance-none border px-2 bg-sky-100 rounded border-sky-300 border hover:bg-sky-200 hover:border-sky-400'),
-                        A2($elm$html$Html$Events$on, 'change', targetBucketMsgDecoder)
-                    ]), A2($elm$core$List$cons, A2($elm$html$Html$option, _List_fromArray([
-                        $elm$html$Html$Attributes$disabled(true),
-                        $elm$html$Html$Attributes$selected(_Utils_eq(targetBucket, $elm$core$Maybe$Nothing))
-                    ]), _List_fromArray([
-                        $elm$html$Html$text('Move where? ▼')
-                    ])), A2($elm$core$List$cons, A2($elm$html$Html$option, _List_fromArray([
-                        $elm$html$Html$Attributes$selected(_Utils_eq(targetBucket, $elm$core$Maybe$Just($author$project$Main$ToBeBudgeted))),
-                        $elm$html$Html$Attributes$disabled(_Utils_eq(targetBucket, $elm$core$Maybe$Just($author$project$Main$ToBeBudgeted)) || _Utils_eq(config.currentBucket, $author$project$Main$ToBeBudgeted)),
-                        $elm$html$Html$Attributes$value($author$project$Main$bucketTypeToString($author$project$Main$ToBeBudgeted))
-                    ]), _List_fromArray([
-                        $elm$html$Html$text($author$project$Main$toBeBudgetedName)
-                    ])), A2($elm$core$List$concatMap, $author$project$Main$targetBucketOptionsView({
-                        bucketName: config.bucketName,
-                        currentBucket: config.currentBucket,
-                        selectedTargetBucket: targetBucket
-                    }), config.categoriesAndBuckets)))),
-                    A3($author$project$Main$button, $author$project$Main$Sky, _List_fromArray([
-                        $elm$html$Html$Events$onClick(config.cancelMoneyOp)
-                    ]), _List_fromArray([
-                        $author$project$Icons$xmark
-                    ])),
-                    A3($author$project$Main$button, $author$project$Main$Sky, _List_fromArray([
-                        $elm$html$Html$Events$onClick(config.finishMoneyOp),
-                        $elm$html$Html$Attributes$disabled(!$author$project$Main$isValidNumber(valueString1))
-                    ]), _List_fromArray([
-                        $author$project$Icons$check
-                    ]))
-                ]));
+                return A4($author$project$Main$moneyInputAndBucketSelectView, config, {
+                    label: 'Moving:',
+                    placeholder: 'Amount to move',
+                    selectPlaceholder: 'Move where? ▼'
+                }, targetBucket, valueString1);
+            default:
+                var _v2 = moneyOp.a;
+                var sourceBucket = _v2.a;
+                var valueString1 = _v2.b;
+                return A4($author$project$Main$moneyInputAndBucketSelectView, config, {
+                    label: 'Taking:',
+                    placeholder: 'Amount to take',
+                    selectPlaceholder: 'Take from where? ▼'
+                }, sourceBucket, valueString1);
         }
     });
+    var $author$project$Data$Money$negate = function(_v0) {
+        var _int = _v0.a;
+        return $author$project$Data$Money$Money(-_int);
+    };
     var $elm$core$String$pad = F3(function(n, _char, string) {
         var half = (n - $elm$core$String$length(string)) / 2;
         return _Utils_ap(A2($elm$core$String$repeat, $elm$core$Basics$ceiling(half), $elm$core$String$fromChar(_char)), _Utils_ap(string, A2($elm$core$String$repeat, $elm$core$Basics$floor(half), $elm$core$String$fromChar(_char))));
@@ -5144,17 +5186,31 @@ type alias Process =
         var _v0 = $author$project$Data$Money$toParts(money);
         var whole = _v0.a;
         var cents = _v0.b;
-        return $elm$core$String$fromInt(whole) + ('.' + (A3($elm$core$String$pad, 2, _Utils_chr('0'), $elm$core$String$fromInt(cents)) + ' Kč'));
+        return $elm$core$String$fromInt(whole) + ('.' + A3($elm$core$String$pad, 2, _Utils_chr('0'), $elm$core$String$fromInt(cents)));
     };
-    var $author$project$Main$valuePill = function(money) {
-        var color = $author$project$Data$Money$isNegative(money) ? $elm$html$Html$Attributes$class('bg-red-200 border-red-400 text-red-600 hover:bg-red-300 hover:border-red-500') : $elm$html$Html$Attributes$class('bg-lime-200 border-lime-400 text-lime-600 hover:bg-lime-300 hover:border-lime-500');
+    var $elm$html$Html$Attributes$classList = function(classes) {
+        return $elm$html$Html$Attributes$class(A2($elm$core$String$join, ' ', A2($elm$core$List$map, $elm$core$Tuple$first, A2($elm$core$List$filter, $elm$core$Tuple$second, classes))));
+    };
+    var $elm_community$html_extra$Html$Attributes$Extra$empty = $elm$html$Html$Attributes$classList(_List_Nil);
+    var $elm$html$Html$Attributes$title = $elm$html$Html$Attributes$stringProperty('title');
+    var $author$project$Main$valuePill = F2(function(onNegativeClick, money) {
+        var _v0 = $author$project$Data$Money$isNegative(money) ? _Utils_Tuple2($elm$html$Html$Attributes$class('bg-red-200 border-red-400 text-red-600 hover:bg-red-300 hover:border-red-500'), onNegativeClick) : _Utils_Tuple2($elm$html$Html$Attributes$class('bg-lime-200 border-lime-400 text-lime-600 hover:bg-lime-300 hover:border-lime-500'), $elm$core$Maybe$Nothing);
+        var color = _v0.a;
+        var maybeOnClick = _v0.b;
         return A2($elm$html$Html$div, _List_fromArray([
             $elm$html$Html$Attributes$class('rounded px-2 border'),
-            color
+            color,
+            A2($elm$core$Maybe$withDefault, $elm_community$html_extra$Html$Attributes$Extra$empty, A2($elm$core$Maybe$map, $elm$html$Html$Events$onClick, maybeOnClick)),
+            $elm$html$Html$Attributes$class(A2($elm$core$Maybe$withDefault, '', A2($elm$core$Maybe$map, function(_v1) {
+                return 'cursor-pointer';
+            }, maybeOnClick))),
+            A2($elm$core$Maybe$withDefault, $elm_community$html_extra$Html$Attributes$Extra$empty, A2($elm$core$Maybe$map, function(_v2) {
+                return $elm$html$Html$Attributes$title('Whoops! Click to select how to fix this.');
+            }, maybeOnClick))
         ]), _List_fromArray([
-            $elm$html$Html$text($author$project$Data$Money$toString(money))
+            $elm$html$Html$text($author$project$Data$Money$toString(money) + ' Kč')
         ]));
-    };
+    });
     var $author$project$Main$bucketView = F3(function(model, categoriesAndBuckets, bucket) {
         var moneyOp = A2($author$project$Data$IdDict$get, bucket.id, model.bucketMoneyOps);
         return A2($elm$html$Html$div, _List_fromArray([
@@ -5168,7 +5224,7 @@ type alias Process =
             A2($elm$html$Html$div, _List_fromArray([
                 $elm$html$Html$Attributes$class('flex gap-2')
             ]), _List_fromArray([
-                $author$project$Main$valuePill(bucket.value),
+                A2($author$project$Main$valuePill, $elm$core$Maybe$Just(A2($author$project$Main$StartMoneyOp, $author$project$Main$NormalBucket(bucket.id), A2($author$project$Main$TakeFromM, $elm$core$Maybe$Nothing, $author$project$Data$Money$toString($author$project$Data$Money$negate(bucket.value))))), bucket.value),
                 A2($author$project$Main$moneyOpView, {
                     bucketName: $author$project$Main$getBucketName(model),
                     cancelMoneyOp: $author$project$Main$CancelMoneyOp($author$project$Main$NormalBucket(bucket.id)),
@@ -5176,7 +5232,7 @@ type alias Process =
                     currentBucket: $author$project$Main$NormalBucket(bucket.id),
                     finishMoneyOp: $author$project$Main$FinishMoneyOp($author$project$Main$NormalBucket(bucket.id)),
                     inputDomId: $author$project$Main$MoneyOpInput($author$project$Main$NormalBucket(bucket.id)),
-                    selectTargetBucket: $author$project$Main$SelectMoneyOpTargetBucket($author$project$Main$NormalBucket(bucket.id)),
+                    selectOtherBucket: $author$project$Main$SelectMoneyOpOtherBucket($author$project$Main$NormalBucket(bucket.id)),
                     setMoneyOpInput: $author$project$Main$SetMoneyOpInput($author$project$Main$NormalBucket(bucket.id)),
                     startMoneyOp: $author$project$Main$StartMoneyOp($author$project$Main$NormalBucket(bucket.id))
                 }, moneyOp),
@@ -5277,13 +5333,13 @@ type alias Process =
                         $elm$html$Html$Attributes$class('flex gap-2')
                     ]), _List_fromArray([
                         $elm$html$Html$text('Total value: '),
-                        $author$project$Main$valuePill(totalValue)
+                        A2($author$project$Main$valuePill, $elm$core$Maybe$Nothing, totalValue)
                     ])),
                     A2($elm$html$Html$div, _List_fromArray([
                         $elm$html$Html$Attributes$class('flex gap-2')
                     ]), _List_fromArray([
                         $elm$html$Html$text($author$project$Main$toBeBudgetedName + ': '),
-                        $author$project$Main$valuePill(model.toBeBudgeted),
+                        A2($author$project$Main$valuePill, $elm$core$Maybe$Just(A2($author$project$Main$StartMoneyOp, $author$project$Main$ToBeBudgeted, A2($author$project$Main$TakeFromM, $elm$core$Maybe$Nothing, $author$project$Data$Money$toString($author$project$Data$Money$negate(model.toBeBudgeted))))), model.toBeBudgeted),
                         A2($author$project$Main$moneyOpView, {
                             bucketName: $author$project$Main$getBucketName(model),
                             cancelMoneyOp: $author$project$Main$CancelMoneyOp($author$project$Main$ToBeBudgeted),
@@ -5291,7 +5347,7 @@ type alias Process =
                             currentBucket: $author$project$Main$ToBeBudgeted,
                             finishMoneyOp: $author$project$Main$FinishMoneyOp($author$project$Main$ToBeBudgeted),
                             inputDomId: $author$project$Main$MoneyOpInput($author$project$Main$ToBeBudgeted),
-                            selectTargetBucket: $author$project$Main$SelectMoneyOpTargetBucket($author$project$Main$ToBeBudgeted),
+                            selectOtherBucket: $author$project$Main$SelectMoneyOpOtherBucket($author$project$Main$ToBeBudgeted),
                             setMoneyOpInput: $author$project$Main$SetMoneyOpInput($author$project$Main$ToBeBudgeted),
                             startMoneyOp: $author$project$Main$StartMoneyOp($author$project$Main$ToBeBudgeted)
                         }, model.toBeBudgetedMoneyOp)
@@ -5357,4 +5413,4 @@ $d3d62a653380dacf$var$app.ports.saveToLocalStorage.subscribe((string)=>{
 });
 
 
-//# sourceMappingURL=index.efd89abf.js.map
+//# sourceMappingURL=index.91a308cc.js.map

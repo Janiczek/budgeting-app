@@ -288,6 +288,8 @@ Ensure the default browser behavior of the `hidden` attribute.
   display: flex;
 }.contents {
   display: contents;
+}.cursor-pointer {
+  cursor: pointer;
 }.appearance-none {
   -webkit-appearance: none;
      -moz-appearance: none;
@@ -421,4 +423,4 @@ Ensure the default browser behavior of the `hidden` attribute.
   background-color: rgb(209 213 219 / var(--tw-bg-opacity));
 }
 
-/*# sourceMappingURL=index.534d777b.css.map */
+/*# sourceMappingURL=index.cf288a92.css.map */
