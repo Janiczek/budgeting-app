@@ -7,6 +7,7 @@ module Data.Money exposing
     , fromString
     , isNegative
     , subtract
+    , toCents
     , toString
     , toStringWithCurrency
     , zero
@@ -140,3 +141,8 @@ isNegative money =
         |> toParts
         |> Tuple.first
         |> (\n -> n < 0)
+
+
+toCents : Money -> Int
+toCents (Money int) =
+    int

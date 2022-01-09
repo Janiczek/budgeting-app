@@ -1046,6 +1046,8 @@ bucketView model categoriesAndBuckets bucket =
                     |> Just
                 )
                 bucket.value
+            , bucket.goal
+                |> Html.viewMaybe (goalView bucket.value)
             , moneyOpView
                 { startMoneyOp = StartMoneyOp <| NormalBucket bucket.id
                 , selectOtherBucket = SelectMoneyOpOtherBucket <| NormalBucket bucket.id
@@ -1064,6 +1066,45 @@ bucketView model categoriesAndBuckets bucket =
                 [ Icons.xmark ]
             ]
         ]
+
+
+goalView : Money -> Money -> Html msg
+goalView value goal =
+    let
+        centsValue =
+            Money.toCents value
+
+        centsGoal =
+            Money.toCents goal
+
+        times =
+            (toFloat centsValue / toFloat centsGoal)
+                |> (*) 100
+                |> floor
+                |> toFloat
+                |> (\x -> x / 100)
+                |> max 0
+
+        style =
+            if centsValue <= 0 then
+                Attrs.class "bg-orange-200 border-orange-400 text-orange-600 hover:bg-orange-300 hover:border-orange-500"
+
+            else
+                case compare centsValue centsGoal of
+                    LT ->
+                        Attrs.class "bg-yellow-200 border-yellow-400 text-yellow-600 hover:bg-yellow-300 hover:border-yellow-500"
+
+                    EQ ->
+                        Attrs.class "bg-lime-200 border-lime-400 text-lime-600 hover:bg-lime-300 hover:border-lime-500"
+
+                    GT ->
+                        Attrs.class "pulse-shadow bg-violet-200 border-violet-400 text-violet-600 hover:bg-violet-300 hover:border-violet-500"
+    in
+    Html.div
+        [ Attrs.class "rounded px-2 border w-20 text-center"
+        , style
+        ]
+        [ Html.text <| String.fromFloat times ++ "x" ]
 
 
 toBeBudgetedName : String
@@ -1098,12 +1139,11 @@ moneyOpView :
     -> Html msg
 moneyOpView config moneyOp =
     let
-        singleBucketView : String -> String -> String -> Html msg
-        singleBucketView valueString label placeholder =
+        singleBucketView : String -> String -> Html msg
+        singleBucketView valueString placeholder =
             Html.div
                 [ Attrs.class "flex gap-1" ]
-                [ Html.span [] [ Html.text label ]
-                , input
+                [ input
                     [ Events.onInput config.setMoneyOpInput
                     , Events.onEnter config.finishMoneyOp
                     , Attrs.placeholder placeholder
@@ -1146,24 +1186,20 @@ moneyOpView config moneyOp =
 
         Just (SubtractM valueString) ->
             singleBucketView valueString
-                "Subtracting:"
                 "Amount to subtract"
 
         Just (AddM valueString) ->
             singleBucketView valueString
-                "Adding:"
                 "Amount to add"
 
         Just (SetM valueString) ->
             singleBucketView valueString
-                "Setting to:"
                 "Amount to set"
 
         Just (MoveToM targetBucket valueString) ->
             moneyInputAndBucketSelectView
                 config
-                { label = "Moving:"
-                , placeholder = "Amount to move"
+                { placeholder = "Amount to move"
                 , selectPlaceholder = "Move where? ▼"
                 }
                 targetBucket
@@ -1172,8 +1208,7 @@ moneyOpView config moneyOp =
         Just (TakeFromM sourceBucket valueString) ->
             moneyInputAndBucketSelectView
                 config
-                { label = "Taking:"
-                , placeholder = "Amount to take"
+                { placeholder = "Amount to take"
                 , selectPlaceholder = "Take from where? ▼"
                 }
                 sourceBucket
@@ -1192,8 +1227,7 @@ moneyInputAndBucketSelectView :
     , bucketName : BucketType -> String
     }
     ->
-        { label : String
-        , placeholder : String
+        { placeholder : String
         , selectPlaceholder : String
         }
     -> Maybe BucketType
@@ -1208,8 +1242,7 @@ moneyInputAndBucketSelectView config labels otherBucket valueString =
     in
     Html.div
         [ Attrs.class "flex gap-1" ]
-        [ Html.span [] [ Html.text labels.label ]
-        , input
+        [ input
             [ Events.onInput config.setMoneyOpInput
             , Events.onEnter config.finishMoneyOp
             , Attrs.placeholder labels.placeholder
